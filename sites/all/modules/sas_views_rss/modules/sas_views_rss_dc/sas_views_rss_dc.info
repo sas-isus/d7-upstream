@@ -1,0 +1,5 @@
+name = "SAS Views RSS: DC Elements"
+description = "Provides Dublin Core Metadata element set for SAS Views RSS"
+package = Penn
+dependencies[] = sas_views_rss
+core = "7.x"

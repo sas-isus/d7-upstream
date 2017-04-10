@@ -1,0 +1,17 @@
+<?php
+/**
+ * @file
+ * SAS Event Feed Module
+ *
+ * Functions for (un)installation of the module
+ */
+
+function sas_event_feed_install() {
+    module_load_include('inc', 'sas_event_feed', 'sas_event_feed.include');
+    variable_set('date_format_' . SAS_EVENT_FEED_DATE_TYPE, SAS_EVENT_FEED_DATE_FORMAT);
+}
+
+function sas_event_feed_uninstall() {
+    module_load_include('inc', 'sas_event_feed', 'sas_event_feed.include');
+    variable_del('date_format_' . SAS_EVENT_FEED_DATE_TYPE);
+}

@@ -1,0 +1,183 @@
+<?php
+/**
+ * Implements hook_schema().
+ */
+function mediafront_schema() {
+  $schema['mediafront_preset'] = array(
+    'description' => 'The preset table for MediaFront.',
+    'fields' => array(
+      'pid' => array(
+        'description' => 'The primary identifier for a MediaFront preset.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The name of this preset.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => 'A brief description of this preset.',
+        'type' => 'text',
+        'size' => 'medium',
+        'translatable' => TRUE,
+      ),
+      'player' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'connect' => array(
+        'type' => 'text',
+        'size' => 'medium',
+        'serialize' => TRUE,
+        'description' => 'Serialized player connection settings.',
+      ),
+      'settings' => array(
+        'type' => 'text',
+        'size' => 'medium',
+        'serialize' => TRUE,
+        'description' => 'Serialized player settings that do not warrant a dedicated column.',
+      ),
+    ),
+    'unique keys' => array(
+      'name' => array('name'),
+    ),
+    'primary key' => array('pid'),
+  );
+
+  $schema['mediafront_filefield'] = array(
+    'description' => 'Table used to tell the MediaFront module how each FileField should be handled.',
+    'fields' => array(
+      'fid' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'entity' => array('type' => 'text', 'not null' => FALSE),
+      'bundle' => array('type' => 'text', 'not null' => FALSE),
+      'field_name' => array('type' => 'text', 'not null' => FALSE),
+      'media_type'  => array('type' => 'text', 'not null' => FALSE),
+      'node_preset'  => array('type' => 'text', 'not null' => FALSE),
+      'thumb_preset' => array('type' => 'text', 'not null' => FALSE)
+    ),
+    'primary key' => array('fid')
+  );
+
+  return $schema;
+}
+
+function mediafront_update_7001() {
+  $update = array();
+
+  // Create the mediafront_filefield table.
+  db_create_table('mediafront_filefield', array(
+    'description' => 'Table used to tell the MediaFront module how each FileField should be handled.',
+    'fields' => array(
+      'fid' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'node_type' => array('type' => 'text', 'not null' => FALSE),
+      'field_name' => array('type' => 'text', 'not null' => FALSE),
+      'media_type'  => array('type' => 'text', 'not null' => FALSE),
+      'node_preset'  => array('type' => 'text', 'not null' => FALSE),
+      'thumb_preset' => array('type' => 'text', 'not null' => FALSE)
+    ),
+    'primary key' => array('fid')
+  ));
+
+  return $update;
+}
+
+function mediafront_update_7002() {
+  $update = array();
+
+  // Add the new fields to the database.
+  db_add_field('mediafront_filefield', 'entity', array('type' => 'text', 'not null' => FALSE));
+  db_add_field('mediafront_filefield', 'bundle', array('type' => 'text', 'not null' => FALSE));
+
+  // Update the current fields.
+  $fields = db_select('mediafront_filefield', 'f')->fields('f')->execute();
+  while( $field = $fields->fetchObject() ) {
+    db_update('mediafront_filefield')
+      ->fields(array(
+      'entity' => 'node',
+      'bundle' => $field->node_type,
+      ))
+      ->condition('fid', $field->fid)
+      ->execute();
+  }
+
+  // Now drop the node_type field.
+  db_drop_field('mediafront_filefield', 'node_type');
+  
+  return $update;
+}
+
+/**
+ * Migrate the Preset module presets to the MediaFront module.
+ */
+function mediafront_update_7003() {
+  $ret = array();
+  require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'mediafront') . '/includes/mediafront.preset.inc';
+  $presets = mediafront_preset_get_presets();
+  foreach( $presets as $preset ) {
+    $mpreset = array();
+    $mpreset['name'] = $preset['name'];
+    $mpreset['description'] = $preset['description'];
+    if( $preset['settings']['player'] ) {
+      $mpreset['player'] = $preset['settings']['player'];
+      unset($preset['settings']['player']);
+    }
+    else {
+      $mpreset['player'] = 'osmplayer';
+    }
+    if( $preset['settings']['connect'] ) {
+      $mpreset['connect'] = $preset['settings']['connect'];
+      unset($preset['settings']['connect']);
+    }
+    $mpreset['settings'] = $preset['settings'];
+    mediafront_preset_save( $mpreset );
+  }
+
+  // Clear the menu cache.
+  menu_cache_clear();
+  
+  return $ret;
+}
+
+/**
+ * Disable the Preset module since it isn't needed anymore.
+ */
+function mediafront_update_7004() {
+  module_disable(array('preset'));
+}
+
+/**
+ * Clear out all cached css files.
+ */
+function mediafront_update_7005() {
+  osmplayer_clear_css();
+}
+
+/**
+ * Change all the playerPath to be correct and delete the playerURL.
+ */
+function mediafront_update_7006() {
+  require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'mediafront') . '/players/osmplayer/player/OSMPlayer.php';
+  require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'mediafront') . '/includes/mediafront.preset.inc';
+  $presets = mediafront_preset_get_presets();
+  $player = new OSMPlayer();
+  $path = $player->getPlayerPath();
+  foreach( $presets as $preset ) {
+    $preset['settings']['playerPath'] = $path;
+    unset($preset['settings']['playerURL']);
+    mediafront_preset_save( $preset );
+  }  
+}
+
+/**
+ * Fix any CSS anomolies.
+ */
+function mediafront_update_7007() {
+  mediafront_update_7006();
+}
+?>

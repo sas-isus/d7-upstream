@@ -1,0 +1,96 @@
+<?php
+/**
+ * @file
+ *
+ */
+
+
+/**
+ * Implementation of hook_schema().
+ */
+function views_natural_sort_schema() {
+
+  // Contains relations between two users.
+  $schema['views_natural_sort'] = array(
+    'description' => t('Compressed titles for natural sorting.'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('Node id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'field' => array(
+        'description' => t('The field name. This will be title or some cck text field, etc.'),
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'content' => array(
+        'description' => t('Filtered content used for sorting.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'key' => array('nid', 'field', 'content'),
+    'primary key' => array('nid', 'field'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function views_natural_sort_install() {
+  variable_set(
+    'views_natural_sort_beginning_words_remove',
+    array(
+      t('The'),
+      t('A'),
+      t('An'),
+      t('La'),
+      t('Le'),
+      t('Il')
+    )
+  );
+  variable_set(
+    'views_natural_sort_words_remove',
+    array(
+      t('and'),
+      t('or'),
+      t('of'),
+    )
+  );
+  variable_set('views_natural_sort_symbols_remove', "#\"'\\()[]");
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function views_natural_sort_enable() {
+  module_load_include('inc', 'views_natural_sort', 'views_natural_sort.admin');
+  views_natural_sort_rebuild_index_submit();
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function views_natural_sort_uninstall() {
+  variable_del('views_natural_sort_beginning_words_remove');
+  variable_del('views_natural_sort_words_remove');
+  variable_del('views_natural_sort_symbols_remove');
+}
+
+/**
+ * Impliments hook_update_N().
+ *
+ * Rebuild the sorting index after changes made for numerical data.
+ */
+function views_natural_sort_update_7001() {
+  module_load_include('inc', 'views_natural_sort', 'views_natural_sort.admin');
+  views_natural_sort_rebuild_index_submit();
+}

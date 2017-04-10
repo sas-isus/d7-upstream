@@ -1,0 +1,23 @@
+<?php
+/**
+ * @file
+ * pennweblogin.install
+ * 
+ * PennWebLogin Module v. 7.x-1.x
+ *
+ * Set system variables 
+ */
+
+/**
+ * Implementation of hook_install
+ */
+function pennweblogin_install() {
+  variable_set('site_403', 'pennweblogin/access_denied');
+}
+
+/**
+ * Implementation of hook_uninstall
+ */
+function pennweblogin_uninstall() {
+  variable_set('site_403', '');
+}

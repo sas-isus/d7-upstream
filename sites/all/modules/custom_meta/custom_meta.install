@@ -1,0 +1,45 @@
+<?php
+/**
+ * @file
+ * Custom Meta install
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function custom_meta_schema() {
+  $schema = array();
+
+  $schema['custom_meta'] = array(
+    'description' => 'Table to store meta tag attributes',
+    'fields' => array(
+      'meta_uid' => array(
+        'description' => 'Unique id for the tag',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'meta_attr' => array(
+        'description' => 'Meta attribute name',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_attr_value' => array(
+        'description' => 'Meta attribute value',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+      'meta_content' => array(
+        'description' => 'Meta content value',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('meta_uid'),
+  );
+
+  return $schema;
+}

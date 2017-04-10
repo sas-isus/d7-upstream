@@ -1,0 +1,275 @@
+<?php
+/**
+ * @file
+ * penncourse.install
+ *
+ * Installation and upgrade functions for the PennCourse module
+ */
+
+
+function base_create_content($type = '<create>', $macro = '', $file = '') {
+    if (!module_exists("content_copy")) {
+        drupal_set_message(t('Programmatically creating CCK fields requires the Content Copy module. Exiting.'));
+        return;
+    }
+
+    // get macro import data, prefer file first
+    // assign $file content to $macro, if file is available
+    if ($file) {
+        if (file_exists($file)) {
+            $macro = file_get_contents($file);
+        }
+        else {
+            drupal_set_message(t('Unable to read input file for import. Exiting.'));
+            return;
+        }
+    }
+
+    // build form state
+    $form_state = array(
+        'values' => array(
+            'type_name' => $type,
+            'macro' => $macro,
+        ),
+    );
+
+    //import content by executing content copy import form and passing macro
+    drupal_form_submit("content_copy_import_form", $form_state);
+    content_clear_type_cache();
+}
+
+function penncourse_text_format_enable() {
+    $format_exists = (bool) db_query_range('SELECT 1 FROM {filter_format} WHERE name = :name', 0, 1, array(':name' => 'Penncourse Formatted'))->fetchField();
+    // Add a Penncourse Formatted text format, if it does not exist. Do this only for the
+    // first install (or if the format has been manually deleted) as there is no
+    // reliable method to identify the format in an uninstall hook or in
+    // subsequent clean installs.
+    if (!$format_exists) {
+        $penncourse_format = array(
+            'format' => 'penncourse_format',
+            'name' => 'Penncourse Formatted',
+
+            // 'Plain text' format is installed with a weight of 10 by default. Use a
+            // higher weight here to ensure that this format will not be the default
+            // format for anyone.
+            'weight' => 20,
+            'filters' => array(
+
+                // Enable the filter_html filter.
+                'filter_html' => array(
+                    'weight' => 1,
+                    'status' => 1,
+                    'settings' => array(
+                        'allowed_html' => '<a> <em> <strong> <cite> <blockquote> <code> <ul> <ol> <li> <dl> <dt> <dd> <span> <p> <br>',
+                        'filter_html_help' => 1,
+                        'filter_html_nofollow' => 0
+                    )
+                ),
+            ),
+        );
+        $penncourse_format = (object) $penncourse_format;
+        filter_format_save($penncourse_format);
+
+        drupal_set_message(t('A <a href="@penncourse-format">Penncourse Format</a> text format has been created.', array('@penncourse-format' => url('admin/config/content/formats/' . $penncourse_format->format))));
+    }
+}
+
+
+function penncourse_install() {
+    // get appropriate translation function
+    $t = get_t();
+    $content_type_array = array(
+        'pc_course' =>
+            array(
+                'display_name' => 'Course',
+                'description' => 'The Course content type is used by the Penncourse module to support display of course listing information.'
+            ),
+        'pc_section' =>
+            array(
+                'display_name' => 'Section',
+                'description' => 'A content type for course section data. This data is intended to be loaded automatically from the data warehouse; however, this content type can be used to manually record course section data for those sites not configured for automatic load.'
+            ),
+    );
+    // build our custom content types
+    foreach ($content_type_array AS $name => $info) {
+        // define the node type
+        $content_type = array(
+            'type' => $name,
+            'name' => $t($info['display_name']),
+            'base' => 'node_content',
+            'title_label' => $t('Title'),
+            'description' => $t($info['description']),
+            'custom' => TRUE,
+        );
+
+        // set other node defaults not declared above
+        $content_type = node_type_set_defaults($content_type);
+
+        // save the content type
+        node_type_save($content_type);
+
+
+        /**** STEP 2 ****/
+
+        // add peristant variables that control settings
+        variable_set('additional_settings__active_tab_' . $name, 'edit-menu');
+        variable_set('node_preview_' . $name, 0);
+        variable_set('node_options_' . $name, array(0 => 'status'));
+        variable_set('comment_default_mode_' . $name, 1);
+        variable_set('node_submitted_' . $name, 0);
+        variable_set('menu_options_' . $name, array());
+        variable_set('menu_parent_' . $name, 'main-menu:0');
+    }
+
+    // add fields
+    module_load_include('inc', 'penncourse', 'penncourse.fields');
+    penncourse_build_fields();
+
+    // Create the Course Theme vocabulary
+    $vocabulary = new stdClass();
+    $vocabulary->name = st('Course Theme');
+    $vocabulary->machine_name = 'course_theme';
+    $vocabulary->description = st('Used to group courses by theme for the Penncourse module. Not used by all departments.');
+    $vocabulary->required = 0;
+    $vocabulary->heirarchy = 0;
+    $vocabulary->relations = 0;
+    $vocabulary->module = 'penncourse';
+    $vocabulary->weight = 0;
+    $vocabulary->nodes = array('pc_course' => 1);
+
+    taxonomy_vocabulary_save($vocabulary);
+
+    // create and enable text format (supports HTML content in penncourse fields)
+    penncourse_text_format_enable();
+}
+
+/**
+ * create role for use by the penncourse_user
+ */
+function _penncourse_create_role() {
+    if(!user_role_load_by_name('penncourse user')){
+        $role = new stdClass();
+        $role->name = 'penncourse user';
+        user_role_save($role);
+    }
+}
+
+function _penncourse_create_user() {
+    // create and save new user who will author content associated with this module
+    // first try to load the penncourse_user
+    $penncourse_user = user_load_by_name('penncourse_user');
+    if (!$penncourse_user) {
+        $new_user = array(
+            'name' => 'penncourse_user',
+            'mail' => 'penncourse_user@sas.upenn.edu',
+            'status' => 1,
+            'pass' => _penncourse_rand_password(),
+        );
+        $penncourse_user = user_save(NULL, $new_user);
+    }
+
+    $penncourse_role = user_role_load_by_name('penncourse user');
+
+    if($penncourse_role){
+        // assign the penncourse user role
+        $role = user_role_load_by_name('sas event calendar user');
+        user_multiple_role_edit(array($penncourse_user->uid), 'add_role', $role->rid);
+    }
+}
+
+function _penncourse_update_content_user() {
+    $penncourse_user = user_load_by_name('penncourse_user');
+
+    if ($penncourse_user) {
+        $nodes_updated = db_update('node') // Table name no longer needs {}
+            ->fields(array(
+                'uid' => $penncourse_user->uid,
+            ))
+            ->condition('type', array('pc_section', 'pc_course'), 'IN')
+            ->execute();
+    }
+}
+
+/**
+ * function _sas_event_calendar_rand_password($length = 16)
+ *
+ * generates a random password to save as a drupal native password
+ */
+function _penncourse_rand_password($length = 16) {
+    $vowels = 'aeuyAEUY';
+    $consonants = 'bdghjmnpqrstvzBDGHJLMNPQRSTVWXZ23456789@#$%';
+
+    $password = '';
+    $alt = time() % 2;
+    for ($i = 0; $i < $length; $i++) {
+        if ($alt == 1) {
+            $password .= $consonants[(rand() % strlen($consonants))];
+            $alt = 0;
+        }
+        else {
+            $password .= $vowels[(rand() % strlen($vowels))];
+            $alt = 1;
+        }
+    }
+    return $password;
+}
+
+/**
+ * Add the penncourse user, who will manage course content
+ */
+function penncourse_update_7101() {
+    _penncourse_create_role();
+    _penncourse_create_user();
+    _penncourse_update_content_user();
+}
+
+
+/**
+ * implementation of hook_uninstall
+ */
+function penncourse_uninstall() {
+
+    // delete all nodes for the penncourse content types
+    foreach (array('pc_section', 'pc_course') AS $content_type) {
+        // gather all $content_type nodes created
+        $sql = 'SELECT nid FROM {node} n WHERE n.type = :type';
+        $result = db_query($sql, array(':type' => $content_type));
+        $nids = array();
+        foreach ($result as $row) {
+            $nids[] = $row->nid;
+        }
+        // delete all the $content_type nodes at once
+        node_delete_multiple($nids);
+
+        // remove peristant variables that control settings
+        variable_del('additional_settings__active_tab_' . $content_type);
+        variable_del('node_preview_' . $content_type);
+        variable_del('node_options_' . $content_type);
+        variable_del('node_submitted_' . $content_type);
+        variable_del('menu_options_' . $content_type);
+        variable_del('menu_parent_' . $content_type);
+    }
+
+    // find all fields and delete them
+    foreach (array('pc_section', 'pc_course') AS $content_type) {
+        // find all fields and delete instance
+        $instances = field_info_instances('node', $content_type);
+        foreach ($instances as $instance_name => $instance) {
+            field_delete_field($instance['field_name']);
+        }
+
+        // delete our content type
+        node_type_delete($content_type);
+    }
+
+    // remove Course Theme taxonomy vocabulary
+    // load vocabularies to find the right ID
+    $vocabularies = taxonomy_vocabulary_get_names();
+    taxonomy_vocabulary_delete($vocabularies['course_theme']->vid);
+
+    // purge all field information
+    field_purge_batch(1000);
+
+
+    variable_del('penncourse_subject_areas');
+}

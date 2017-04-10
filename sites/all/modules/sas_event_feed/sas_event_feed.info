@@ -1,0 +1,12 @@
+name = SAS Event Feed
+description = "Views and configuration options to support feed generation in support of central event data aggregation
+at the University of Pennsylvania School of Arts & Sciences."
+package = Penn
+version = 7.x-1.0
+core = 7.x
+files[] = sas_event_feed.module
+files[] = sas_event_feed.include.inc
+files[] = sas_event_feed.install
+files[] = sas_event_feed.views_default.inc
+dependencies[] = views
+dependencies[] = sas_views_rss

@@ -1,0 +1,156 @@
+<?php
+/**
+ * @file
+ * SAS Event Feed Module
+ *
+ * This module supports the generation of event data feeds from departmental web sites at the
+ * University of Pennsylvania School of Arts & Sciences
+ */
+
+/**
+ * Display help and module information
+ * @param section which section of the site we're displaying help
+ * @return help text for section
+ */
+function sas_event_feed_help($section='') {
+    $output = '';
+
+    switch ($section) {
+        case "admin/help#penncourse":
+            $output = '<p>' . t("Views and configuration options to support feed generation in support of
+              central event data aggregation at the University of Pennsylvania School of Arts & Sciences.") . '</p>';
+            break;
+    }
+
+    return $output;
+} // function sas_event_feeds_help
+
+/**
+ * implementation of hook_views_api
+ * @return array
+ */
+function sas_event_feed_views_api() {
+    return array(
+        'api' => 3,
+    );
+} // function sas_event_feeds_views_api
+
+/**
+ * Valid permissions for this module
+ * @return array An array of valid permissions for the onthisdate module
+ */
+function sas_event_feed_permission() {
+    return array(
+        'admin sas event feed' => array(
+            'title' => t('Administer SAS Event Feed Module'),
+            'description' => t('Access administrative tasks for this module.')
+        ),
+    );
+} // function sas_event_feed_permission
+
+/**
+ * Implementation of hook_menu()
+ */
+function sas_event_feed_menu() {
+    $items['admin/settings/sas-event-feed'] = array(
+        'title' => 'SAS Event Feed',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('sas_event_feed_admin_settings'),
+        'access arguments' => array('admin sas event feed'),
+        'description' => 'Change settings for the SAS Event Feed module.',
+        'file' => 'sas_event_feed.admin.inc',
+    );
+    return $items;
+} // function sas_event_feed_menu()
+
+/**
+ * Implements hook_date_formats().
+ */
+function sas_event_feed_date_formats() {
+    module_load_include('inc', 'sas_event_feed', 'sas_event_feed.include');
+    $formats = array();
+    $formats[] = array(
+        'type' => SAS_EVENT_FEED_DATE_TYPE,
+        'format' => SAS_EVENT_FEED_DATE_FORMAT,
+        'locales' => array(),
+    );
+
+    variable_set('date_format_' . SAS_EVENT_FEED_DATE_TYPE, SAS_EVENT_FEED_DATE_FORMAT);
+
+    return $formats;
+}
+
+/**
+ * Implements hook_date_format_types().
+ */
+function sas_event_feed_date_format_types() {
+    module_load_include('inc', 'sas_event_feed', 'sas_event_feed.include');
+    $types = array();
+    $types[SAS_EVENT_FEED_DATE_TYPE] = t('SAS Event Feed date format');
+    return $types;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function sas_event_feed_theme() {
+    return array(
+        // override default implementation from views:
+        // remove nbsp entities from the sas_event_feed view
+        'theme_views_view_field' => array(
+            'file' => 'sas_event_feed.include.inc',
+            'function' => 'sas_event_feed_views_view_field',
+            'arguments' => array(),
+        ),
+    );
+}
+
+/**
+ * alter views per admin settings to support non-standard field and event type configurations
+ * @param $views
+ */
+function sas_event_feed_views_default_views_alter(&$views) {
+    module_load_include('inc', 'sas_event_feed', 'sas_event_feed.include');
+    $event_type = variable_get('sas_event_feed_content_type', '');
+
+    // only update our default view if we have an event type defined
+    if ($event_type) {
+        $handler =& $views['sas_event_feed']->display['default']->handler;
+
+        // update node type filter
+        $handler->display->display_options['filters']['type']['value'] = array($event_type => $event_type);
+
+        // get body info and update values
+        $body_field = variable_get('sas_event_feed_field_description', '');
+        if ($body_field == 'body') {
+            // this is all we need, and is default, so we're good
+        }
+        elseif ($body_field) {
+            // we have a value, so this is not the standard body field
+            $field_array_description = _sas_event_feed_db_info($body_field);
+            $handler->display->display_options['fields']['body']['table'] = $field_array_description['table'];
+            $handler->display->display_options['fields']['body']['field'] = $field_array_description['column'];
+
+        }
+
+        // get date info and update values
+        $date_field = variable_get('sas_event_feed_field_date', '');
+        if ($date_field) {
+            $field_array_date = _sas_event_feed_db_info($date_field);
+            $handler->display->display_options['fields']['field_date']['table'] = $field_array_date['table'];
+            $handler->display->display_options['fields']['field_date']['field'] = $field_array_date['column'];
+            $handler->display->display_options['sorts']['field_date_value']['table'] = $field_array_date['table'];
+            $handler->display->display_options['sorts']['field_date_value']['field'] = $field_array_date['column'] . '_value';
+            $handler->display->display_options['filters']['field_date_value']['table'] = $field_array_date['table'];
+            $handler->display->display_options['filters']['field_date_value']['field'] = $field_array_date['column'] . '_value';
+        }
+
+        $location_field = variable_get('sas_event_feed_field_location', '');
+        if ($location_field) {
+            $field_array_location = _sas_event_feed_db_info($location_field);
+            $handler->display->display_options['fields']['field_location']['table'] = $field_array_location['table'];
+            $handler->display->display_options['fields']['field_location']['field'] = $field_array_location['column'];
+        }
+
+    }
+}

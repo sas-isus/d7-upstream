@@ -1,0 +1,81 @@
+<?php
+/**
+ * @file
+ * Easy Social installation hooks.
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function easy_social_enable() {
+  drupal_set_message(t('Use the <a href="@wizard">Easy Social Wizard</a> to quickly set up Easy Social for your Content Types', array('@wizard' => url('admin/config/content/easy_social_wizard'))));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function easy_social_uninstall() {
+  $result = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', 'easy_social_%', '=')
+    ->execute();
+
+
+  foreach ($result as $row) {
+    variable_del($row->name);
+  }
+}
+
+/**
+ * Upgrade path from 7.x-1.0 to 7.x-2.0.
+ */
+function easy_social_update_7200() {
+  // Find all current variables.
+  $result = db_query("SELECT name, value FROM {variable} WHERE name LIKE 'easysocial%'");
+
+  foreach ($result as $row) {
+    // Get old variable values.
+    $value = variable_get($row->name);
+
+    // Convert old variable names to new variable names.
+    switch ($row->name) {
+      case 'easysocial_ignore_paths':
+        $name = 'easy_social_ignore_paths';
+        break;
+      case 'easysocial_tt_global_account_description':
+        $name = 'easy_social_twitter_account_description';
+        break;
+      case 'easysocial_tt_global_account_related':
+        $name = 'easy_social_twitter_account_related';
+        break;
+      case 'easysocial_tt_global_account_via':
+        $name = 'easy_social_twitter_account_via';
+        break;
+      default:
+        // That was the easy part, now we gotta handle per content type settings.
+        if (strpos($row->name, 'override') !== FALSE) {
+          $temp = explode('_', $row->name);
+          $type = $temp[1];
+          $name = "easy_social_{$type}_enable";
+        }
+        elseif (strpos($row->name, 'typebtn') !== FALSE) {
+          $temp = explode('_', $row->name);
+          $type = $temp[1];
+          $name = "easy_social_{$type}_type";
+        }
+        elseif (strpos($row->name, 'social_buttons') !== FALSE) {
+          $temp = explode('_', $row->name);
+          $type = $temp[1];
+          $name = "easy_social_{$type}_widgets";
+        }
+    }
+
+    // Finally, set new variable and ditch old one.
+    if (isset($name)) {
+      variable_set($name, $value);
+      variable_del($row->name);
+    }
+  }
+
+  return t('Easy Social upgraded from 7.x-1.0 to 7.x-2.0.');
+}

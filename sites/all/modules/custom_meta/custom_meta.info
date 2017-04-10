@@ -1,0 +1,11 @@
+name = Custom Meta
+description = Adds user defined custom meta tags.
+package = Third Party Integration
+core = 7.x
+files[] = custom_meta.module
+; Information added by Drupal.org packaging script on 2014-06-18
+version = "7.x-1.3"
+core = "7.x"
+project = "custom_meta"
+datestamp = "1403101137"
+

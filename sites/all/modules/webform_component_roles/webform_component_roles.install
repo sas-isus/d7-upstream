@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * @file
+ * Webform Component Roles module install/schema hooks.
+ *
+ * @author Daniel Imhoff
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function webform_component_roles_schema() {
+  $schema = array();
+
+  $schema['webform_component_roles'] = array(
+    'description' => 'Table for storing the roles which can use webform components.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The node identifier of a webform.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'cid' => array(
+        'description' => 'The identifier for this component within this node, starts at 0 for each node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'rid' => array(
+        'description' => 'The role identifier.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'perms' => array(
+        'description' => 'The permissions the role has on the component.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('nid', 'cid', 'rid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Add new permissions column if it does not exist, or if it does, change it to permit null values.
+ */
+function webform_component_roles_update_7100() {
+  if ( db_field_exists('webform_component_roles', 'perms') ) {
+    db_change_field('webform_component_roles', 'perms', 'perms', array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE,));
+  }
+  else {
+    db_add_field('webform_component_roles', 'perms', array(
+      'description' => 'The permissions the role has on the component.',
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    ));
+  }
+}

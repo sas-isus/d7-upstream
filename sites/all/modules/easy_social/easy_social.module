@@ -1,0 +1,947 @@
+<?php
+/**
+ * @file
+ * Easy social module.
+ */
+
+/**
+ * Easy Social widget types.
+ */
+define('EASY_SOCIAL_WIDGET_HORIZONTAL', 0);
+define('EASY_SOCIAL_WIDGET_VERTICAL', 1);
+
+/**
+ * Easy Social max number of blocks.
+ */
+define('EASY_SOCIAL_BLOCK_MAX', 10);
+
+module_load_include('inc', 'easy_social', 'includes/easy_social.widgets');
+
+/**
+ * Implements hook_permission().
+ */
+function easy_social_permission() {
+  return array(
+    'administer easy social' => array(
+      'title' => t('Administer Easy Social'),
+      'description' => t('Configure Easy Social module'),
+    ),
+    'use easy social wizard' => array(
+      'title' => t('Use Easy Social Wizard'),
+      'description' => t('Access the Easy Social Wizard'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function easy_social_views_api() {
+  return array(
+    'api' => 3,
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function easy_social_menu() {
+  $items = array();
+
+  $items['admin/config/content/easy_social'] = array(
+    'title' => 'Easy Social Settings',
+    'description' => 'Configure the social buttons and node types',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_main'),
+    'access arguments' => array('administer easy social'),
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  $items['admin/config/content/easy_social_wizard'] = array(
+    'title' => 'Easy Social Wizard',
+    'description' => 'Quickly enable Easy Social for your Content Types',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_wizard'),
+    'access arguments' => array('use easy social wizard'),
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  $items['admin/config/content/easy_social/default'] = array(
+    'title' => 'Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  $items['admin/config/content/easy_social/order'] = array(
+    'title' => 'Widget Order',
+    'description' => 'Easy Social Widget Order',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_order'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+    'weight' => 1,
+  );
+
+  $items['admin/config/content/easy_social/ignore-paths'] = array(
+    'title' => 'Ignore Paths',
+    'description' => 'Global paths to ignore and do not display Easy Social',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_ignore_paths'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+    'weight' => 2,
+  );
+
+  $items['admin/config/content/easy_social/widget-extra'] = array(
+    'title' => 'Extra Widgets',
+    'description' => 'Extra settings for widgets',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_extra'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+    'weight' => 3,
+  );
+
+  $items['admin/config/content/easy_social/summary'] = array(
+    'title' => 'Summary',
+    'description' => 'Easy Social Summary',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_summary'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+    'weight' => 4,
+  );
+
+  $items['admin/config/content/easy_social/widget-extra/default'] = array(
+    'title' => 'Extra Widget Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/content/easy_social/widget-extra/twitter'] = array(
+    'title' => 'Twitter',
+    'description' => 'Extra settings for Twitter',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_extra_twitter'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  $items['admin/config/content/easy_social/widget-extra/facebook'] = array(
+    'title' => 'Facebook',
+    'description' => 'Extra settings for Facebook',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_extra_facebook'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  $items['admin/config/content/easy_social/widget-extra/googleplus'] = array(
+    'title' => 'Google+',
+    'description' => 'Extra settings for Google+',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_extra_googleplus'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  $items['admin/config/content/easy_social/widget-extra/linkedin'] = array(
+    'title' => 'LinkedIn',
+    'description' => 'Extra settings for LinkedIn',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('easy_social_admin_config_extra_linkedin'),
+    'access arguments' => array('administer easy social'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/easy_social.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_variable_info().
+ */
+function easy_social_variable_info() {
+  $variables = array();
+
+  // Global settings.
+  $variables['easy_social_ignore_paths'] = array(
+    'title' => t('Easy Social Global Ignore Paths'),
+    'default' => '',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_global_type'] = array(
+    'title' => t('Easy Social Global Widget Type'),
+    'default' => 1,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_global_widgets'] = array(
+    'title' => t('Easy Social Global Widgets'),
+    'default' => array('twitter' => 'twitter', 'facebook' => 'facebook', 'googleplus' => 'googleplus', 'linkedin' => 'linkedin'),
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_global_order'] = array(
+    'title' => t('Easy Social Widget Order'),
+    'default' => array('twitter', 'facebook', 'googleplus', 'linkedin'),
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  // Custom settings per content type.
+  $node_types = node_type_get_types();
+
+  foreach ($node_types as $type => $typeobj) {
+    $variables["easy_social_{$type}_enable"] = array(
+      'title' => t('Enable Easy Social for nodes of type %type', array('%type' => $typeobj->name)),
+      'default' => FALSE,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_comment_{$type}_enable"] = array(
+      'title' => t('Enable Easy Social on comments for nodes of type %type', array('%type' => $typeobj->name)),
+      'default' => FALSE,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_{$type}_count"] = array(
+      'title' => t('Number of Easy Social fields for nodes of type %type', array('%type' => $typeobj->name)),
+      'default' => 1,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_{$type}_type"] = array(
+      'title' => t('Easy Social Widget type for nodes of %type', array('%type' => $typeobj->name)),
+      'default' => 1,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_{$type}_widgets"] = array(
+      'title' => t('Easy Social Widgets for nodes of %type', array('%type' => $typeobj->name)),
+      'default' => FALSE,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+  }
+
+  // Custom settings for blocks.
+  $variables['easy_social_block_count'] = array(
+    'title' => t('Number of Easy Social blocks'),
+    'default' => 1,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  // This is done like this because calling variable_get_value() inside here = WSOD.
+  for ($i = 1; $i <= EASY_SOCIAL_BLOCK_MAX; ++$i) {
+    $variables["easy_social_block_{$i}_title"] = array(
+      'title' => t('Block title'),
+      'default' => '',
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_block_{$i}_override"] = array(
+      'title' => t('Override settings for this block'),
+      'default' => FALSE,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_block_{$i}_type"] = array(
+      'title' => t('Widget Type'),
+      'default' => 1,
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+
+    $variables["easy_social_block_{$i}_widgets"] = array(
+      'title' => t('Enabled Widgets'),
+      'default' => array(),
+      'group' => 'easy_social',
+      'token' => FALSE,
+    );
+  }
+
+  // Custom settings for Twitter.
+  $variables['easy_social_twitter_account_via'] = array(
+    'title' => t('Easy Social Global Mention Account'),
+    'default' => '',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_twitter_account_related'] = array(
+    'title' => t('Easy Social Global Related Account'),
+    'default' => '',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_twitter_account_description'] = array(
+    'title' => t('Easy Social Global Twitter Description'),
+    'default' => 'Check it out!',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+  $variables['easy_social_twitter_count_show'] = array(
+    'title' => t('Easy Social Global Twitter Show Count option'),
+    'default' => 1,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  // Custom settings for Facebook.
+  $variables['easy_social_facebook_appid'] = array(
+    'title' => t('Facebook Application ID'),
+    'default' => '',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_widget_type'] = array(
+    'title' => t('Facebook widget type'),
+    'default' => 'iframe',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_send_button'] = array(
+    'title' => t('Send Button (XFBML Only)'),
+    'default' => FALSE,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_width_vertical'] = array(
+    'title' => t('Show faces'),
+    'default' => '48',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_width_horizontal'] = array(
+    'title' => t('Show faces'),
+    'default' => '88',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_show_faces'] = array(
+    'title' => t('Show faces'),
+    'default' => TRUE,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_verb'] = array(
+    'title' => t('Verb to display'),
+    'default' => 'like',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_color_scheme'] = array(
+    'title' => t('Color Scheme'),
+    'default' => 'light',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_facebook_font'] = array(
+    'title' => t('Font'),
+    'default' => 'default',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  // Custom settings for Google+.
+  $variables['easy_social_googleplus_annotation'] = array(
+    'title' => t('Annotation'),
+    'default' => 'bubble',
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  $variables['easy_social_googleplus_html5'] = array(
+    'title' => t('HTML5 valid syntax'),
+    'default' => TRUE,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  // Custom settings for LinkedIn.
+  $variables['easy_social_linkedin_count_show'] = array(
+    'title' => t('Easy Social Global LinkedIn Show Count option'),
+    'default' => 1,
+    'group' => 'easy_social',
+    'token' => FALSE,
+  );
+
+  return $variables;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function easy_social_theme() {
+  return array(
+    'easy_social_links' => array(
+      'template' => 'templates/easy_social-links',
+      'variables' => array('widgets' => array(), 'widget_type' => NULL, 'lang' => NULL),
+    ),
+    'easy_social_admin_order' => array(
+      'render element' => 'form',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_extra_fields().
+ *
+ * Makes Easy Social available in Manage Display page for content types and comments.
+ */
+function easy_social_field_extra_fields() {
+  $extra = array();
+  $node_types = node_type_get_types();
+
+  // Fields for node types.
+  foreach ($node_types as $type => $typeobj) {
+    if (variable_get_value("easy_social_{$type}_enable")) {
+      // Fields for nodes.
+      for ($i = 1, $num = variable_get_value("easy_social_{$type}_count"); $i <= $num; ++$i) {
+        if (isset($extra['node'][$type]['display'])) {
+          $extra['node'][$type]['display']["easy_social_{$i}"] = array(
+            'label' => t('Easy Social !num', array('!num' => $i)),
+            'weight' => 100 + $i,
+          );
+        }
+        else {
+          $extra['node'][$type] = array(
+            'display' => array(
+              "easy_social_{$i}" => array(
+                'label' => t('Easy Social !num', array('!num' => $i)),
+                'weight' => 100 + $i,
+              ),
+            ),
+          );
+        }
+      }
+
+      // Field display for comments.
+      if (module_exists('comment') && variable_get_value("easy_social_{$type}_enable")) {
+        if (variable_get_value("easy_social_comment_{$type}_enable")) {
+          $extra['comment']['comment_node_' . $type] = array(
+            'display' => array(
+              'easy_social' => array(
+                'label' => t('Easy Social'),
+                'weight' => 100,
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  return $extra;
+}
+
+/**
+ * Implements hook_comment_view().
+ */
+function easy_social_comment_view($comment, $view_mode, $langcode) {
+  // Current node type for this comment.
+  $node_type = str_replace('comment_node_', '', $comment->node_type);
+
+  // Check if Easy Social is available for comments of this type.
+  if (module_exists('comment') && variable_get_value("easy_social_{$node_type}_enable")) {
+    if (variable_get_value("easy_social_comment_{$node_type}_enable")) {
+      // Generate permalink for comment.
+      $uri = entity_uri('comment', $comment);
+      $uri['options'] += array('absolute' => TRUE);
+      $permalink = url($uri['path'], $uri['options']);
+      $node = node_load($comment->nid);
+
+      // Load Easy Social stuff.
+      $type = variable_get_value("easy_social_{$node_type}_type");
+      $enabled_widgets = variable_get_value("easy_social_{$node_type}_widgets");
+      $widgets = _easy_social_render_widgets($permalink, $comment->subject, $type, $enabled_widgets, $node->language);
+
+      // Add Easy Social widgets.
+      $comment->content["easy_social"] = array(
+        '#theme' => 'easy_social_links',
+        '#widgets' => $widgets,
+        '#widget_type' => $type,
+        '#lang' => $node->language,
+        '#weight' => 100,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function easy_social_node_view($node, $view_mode, $langcode) {
+  // We use this instead of $node->path to get an absolute URL.
+  $url = url('node/' . $node->nid, array('absolute' => TRUE));
+
+  // Check if Easy Social is enabled for this content type.
+  if (variable_get_value("easy_social_{$node->type}_enable")) {
+    $type = variable_get_value("easy_social_{$node->type}_type");
+    $enabled_widgets = variable_get_value("easy_social_{$node->type}_widgets");
+    $widgets = _easy_social_render_widgets($url, $node->title, $type, $enabled_widgets, $node->language);
+    $count = variable_get_value("easy_social_{$node->type}_count");
+
+    // Add as many extra fields as we've defined.
+    for ($i = 1; $i <= $count; ++$i) {
+      $node->content["easy_social_{$i}"] = array(
+        '#theme' => 'easy_social_links',
+        '#widgets' => $widgets,
+        '#widget_type' => $type,
+        '#lang' => $node->language,
+        '#weight' => 100 + $i,
+      );
+    }
+  }
+}
+
+/**
+ * Returns a list of enabled Easy Social widgets.
+ *
+ * @return array
+ */
+function easy_social_get_widgets() {
+  static $static;
+
+  // First check static cache.
+  if (!isset($static)) {
+    // Then check Drupal's cache.
+    $cache = cache_get('easy_social_widgets');
+
+    if (isset($cache->data) && is_array($cache->data)) {
+      $return = $cache->data;
+    }
+    else {
+      $return = array();
+
+      foreach (module_implements('easy_social_widget') as $name) {
+        $widgets = module_invoke($name, 'easy_social_widget');
+        $return = array_merge($return, $widgets);
+      }
+
+      // Add widgets to easy_social_global_order variable.
+      $order = variable_get_value('easy_social_global_order');
+      foreach ($return as $name => $array) {
+        if (!in_array($name, $order, TRUE)) {
+          $order[] = $name;
+        }
+      }
+
+      variable_set('easy_social_global_order', $order);
+      cache_set('easy_social_widgets', $return, 'bin', CACHE_TEMPORARY);
+    }
+    $static = $return;
+  }
+
+  return $static;
+}
+
+/**
+ * Implements hook_easy_social_widget().
+ */
+function easy_social_easy_social_widget() {
+  return array(
+    'facebook' => array(
+      'name' => 'Facebook',
+      'markup' => '_easy_social_widget_facebook_markup',
+    ),
+    'googleplus' => array(
+      'name' => 'Google+',
+      'markup' => '_easy_social_widget_googleplus_markup',
+      'scripts' => array(
+        array(
+          'path' => '//apis.google.com/js/plusone.js',
+          'type' => 'external',
+        ),
+      ),
+    ),
+    'linkedin' => array(
+      'name' => 'LinkedIn',
+      'markup' => '_easy_social_widget_linkedin_markup',
+      'scripts' => array(
+        array(
+          'path' => '//platform.linkedin.com/in.js',
+          'type' => 'external',
+        ),
+      ),
+    ),
+    'twitter' => array(
+      'name' => 'Twitter',
+      'markup' => '_easy_social_widget_twitter_markup',
+      'scripts' => array(
+        array(
+          'path' => '//platform.twitter.com/widgets.js',
+          'type' => 'external',
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function easy_social_block_info() {
+  $return = array();
+  $num_blocks = variable_get_value('easy_social_block_count');
+
+  for ($i = 1; $i <= $num_blocks; ++$i) {
+    $return["easy_social_block_{$i}"] = array(
+      'info' => t('Easy Social Block !num', array('!num' => $i)),
+      'cache' => DRUPAL_CACHE_PER_PAGE,
+    );
+  }
+
+  return $return;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function easy_social_block_view($delta = '') {
+  $num_blocks = variable_get_value('easy_social_block_count');
+
+  // Use current page' url and title.
+  $path = isset($_GET['q']) ? $_GET['q'] : '<front>';
+  $url = url($path, array('absolute' => TRUE));
+  $title = variable_get('site_name');
+
+  for ($i = 1; $i <= $num_blocks; ++$i) {
+    if ($delta === "easy_social_block_{$i}") {
+      // check if this block has overriden settings
+      if (variable_get_value("easy_social_block_{$i}_override")) {
+        $type = variable_get_value("easy_social_block_{$i}_type");
+        $enabled_widgets = variable_get_value("easy_social_block_{$i}_widgets");
+        //Overwritten urls
+        $url = array();
+        foreach ($enabled_widgets as $en_widgets) {
+          if((bool)$en_widgets !== FALSE){
+            $url[$en_widgets] = variable_get("easy_social_block_{$i}_url_{$en_widgets}", "[current-path]");
+            //Empty URL or current path
+            if(empty($url[$en_widgets]) || trim($url[$en_widgets]) == '[current-path]') {
+              $url[$en_widgets] = url($path, array('absolute' => TRUE));
+            } else
+            //Base URL
+            if(trim($url[$en_widgets]) == '[base-url]') {
+              $url[$en_widgets] = url('<front>', array('absolute' => TRUE));
+            } else
+            //Internal path
+            if(!valid_url($url[$en_widgets], TRUE)) {
+              $url[$en_widgets] = url($url[$en_widgets], array('absolute' => TRUE));
+            }
+          } 
+        }
+      }
+      else {
+        $type = $enabled_widgets = NULL;
+      }
+
+      global $language;
+      $widgets = _easy_social_render_widgets($url, $title, $type, $enabled_widgets, $language->language);
+
+      return array(
+        'subject' => variable_get_value("easy_social_block_{$i}_title"),
+        'content' => array(
+          '#theme' => 'easy_social_links',
+          '#widgets' => $widgets,
+          '#widget_type' => $type,
+          '#lang' => $language->language,
+        ),
+      );
+    }
+  }
+}
+
+/**
+ * Returns whether Easy Social should be ignored in the current page.
+ *
+ * @return boolean
+ */
+function _easy_social_page_ignore() {
+  $urls_ignored = variable_get_value('easy_social_ignore_paths');
+  $page_match = FALSE;
+  $path = drupal_get_path_alias($_GET['q']);
+
+  // Compare with the internal and path alias (if any).
+  $page_match = drupal_match_path($path, $urls_ignored);
+
+  if ($path != $_GET['q']) {
+    $page_match = $page_match || drupal_match_path($_GET['q'], $urls_ignored);
+  }
+
+  return $page_match;
+}
+
+/**
+ * Return an array of rendered Easy Social Widgets
+ *
+ * @param string $url
+ * @param string $title
+ * @param int $type
+ * @param string $enabled_widgets
+ * @param string $node->language
+ * @return array
+ */
+function _easy_social_render_widgets($url, $title, $type = NULL, $enabled_widgets = NULL, $lang = 'en') {
+  drupal_add_css(drupal_get_path('module', 'easy_social') . '/css/easy_social.css');
+
+  if (!_easy_social_page_ignore()) {
+    // If settings aren't passed, fallback to defaults.
+    if (!isset($type)) {
+      $type = variable_get_value('easy_social_global_type');
+    }
+
+    if (!$enabled_widgets) {
+      $enabled_widgets = variable_get_value('easy_social_global_widgets');
+    }
+
+    // Load enabled widgets.
+    $widgets = easy_social_get_widgets();
+
+    // Sort widgets.
+    $order = variable_get_value('easy_social_global_order');
+    $ordered_widgets = array();
+
+    foreach ($order as $value) {
+      if (in_array($value, $enabled_widgets, TRUE)) {
+        $ordered_widgets[] = $value;
+      }
+    }
+
+    $widget_links = array();
+
+    // Process enabled widgets.
+    foreach ($ordered_widgets as $service) {
+      // Add javascript includes, if any.
+      if (isset($widgets[$service]['scripts']) && is_array($widgets[$service]['scripts'])) {
+        foreach ($widgets[$service]['scripts'] as $script) {
+          $script_type = (isset($script['type'])) ? $script['type'] : 'external';
+          if ($script_type !== 'module') {
+            drupal_add_js($script['path'], $script_type);
+          }
+          else {
+            drupal_add_js($script['path']);
+          }
+        }
+      }
+
+      // Add css includes, if any.
+      if (isset($widgets[$service]['styles']) && is_array($widgets[$service]['styles'])) {
+        foreach ($widgets[$service]['styles'] as $style) {
+          $style_type = (isset($style['type'])) ? $style['type'] : 'external';
+          if ($style_type !== 'module') {
+            drupal_add_css($style['path'], $style_type);
+          }
+          else {
+            drupal_add_css($style['path']);
+          }
+        }
+      }
+
+      // Finally, add widget markup.
+      if (isset($widgets[$service]['markup'])) {
+        $widget_url = (is_array($url)) ? $url[$service] : $url;
+        $widget_links[$service] = call_user_func($widgets[$service]['markup'], $widget_url, $type, $title, $lang);
+      }
+    }
+
+    return $widget_links;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Adds Easy Social options to node type forms.
+ */
+function easy_social_form_node_type_form_alter(&$form, $form_state) {
+  $type = $form['#node_type']->type;
+  if (!empty($type)) {
+    $options = _easy_social_get_options();
+    $form['#submit'][] = 'easy_social_node_type_form_submit';
+
+    $form['easy_social'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Easy Social settings'),
+      '#group' => 'additional_settings',
+      '#tree' => TRUE,
+      '#attached' => array(
+        'js' => array(drupal_get_path('module', 'easy_social') . '/js/easy_social_settings_form.js'),
+      ),
+      '#attributes' => array('class' => array('easysocial-settings-form')),
+    );
+
+    $form['easy_social']["easy_social_{$type}_enable"] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable Easy Social'),
+      '#description' => t('Check this option to enable easy social for this content type'),
+      '#default_value' => variable_get_value("easy_social_{$type}_enable"),
+      '#attributes' => array('class' => array('easy-social-current-type')),
+    );
+
+    if (module_exists('comment') && variable_get_value("easy_social_{$type}_enable")) {
+      $form['easy_social']["easy_social_comment_{$type}_enable"] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable Easy Social on comments'),
+        '#description' => t('Check this option to enable easy social for this content type\'s comments'),
+        '#default_value' => variable_get_value("easy_social_comment_{$type}_enable"),
+        '#attributes' => array('class' => array('easy-social-comment-type')),
+      );
+    }
+
+    $form['easy_social']["easy_social_{$type}_count"] = array(
+      '#type' => 'select',
+      '#title' => t('Number of Easy Social fields'),
+      '#description' => t('You can add more than one Easy Social field to your nodes. This is useful, for example, to add the widget both at top and at the bottom of a node.'),
+      '#options' => array('1' => 1, '2' => 2),
+      '#default_value' => variable_get_value("easy_social_{$type}_count"),
+      '#attributes' => array('class' => array('easy-social-number-fields-type')),
+    );
+
+    $form['easy_social']["easy_social_{$type}_type"] = array(
+      '#type' => 'radios',
+      '#title' => t('Type of buttons'),
+      '#options' => array(
+        EASY_SOCIAL_WIDGET_HORIZONTAL => t('Horizontal'),
+        EASY_SOCIAL_WIDGET_VERTICAL => t('Vertical')
+      ),
+      '#default_value' => _easy_social_variable_get_value("easy_social_{$type}_type"),
+      '#attributes' => array('class' => array('easy-social-type-buttons')),
+    );
+
+    $form['easy_social']["easy_social_{$type}_widgets"] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Social Widgets'),
+      '#options' => $options,
+      '#default_value' => _easy_social_variable_get_value("easy_social_{$type}_widgets"),
+      '#attributes' => array('class' => array('easy-social-each-widget')),
+    );
+  }
+}
+
+/**
+ * Submit callback.
+ *
+ * We have to clear caches to make the Easy Social display widgets
+ * appear/disappear from the Manage Display form.
+ *
+ * @see easy_social_form_node_type_form_alter()
+ * @see _field_info_collate_fields()
+ */
+function easy_social_node_type_form_submit(&$form, &$form_state) {
+  if (strpos($form_state['values']['op'], 'Delete') === 0 || $form_state['triggering_element']['#parents'][0] === 'delete') {
+    // Deleting content type, therefore delete all Easy Social variables related to it.
+    foreach ($form_state['values']['easy_social'] as $name => $value) {
+      variable_del($name);
+    }
+  }
+  else {
+    foreach ($form_state['values']['easy_social'] as $name => $value) {
+      variable_set($name, $value);
+    }
+
+    // Delete bogus variable that is automatically created.
+    // Ideally we wouldn't allow it to get created but can't seem to work around this.
+    variable_del('easy_social_' . $form_state['values']['type']);
+
+    // Don't flush caches when creating a new content type.
+    if (!empty($form_state['values']['old_type'])) {
+      // Clear field info cache.
+      // @see _field_info_collate_fields()
+      cache_clear_all('field_info_fields', 'cache_field');
+    }
+  }
+}
+
+/**
+ * Returns Easy Social options for use in settings forms.
+ *
+ * @return array
+ */
+function _easy_social_get_options() {
+  static $options;
+
+  if (!isset($options)) {
+    $widgets = easy_social_get_widgets();
+    $order = variable_get_value('easy_social_global_order');
+    $ordered_widgets = array();
+
+    foreach ($order as $key) {
+      $ordered_widgets[$key] = $widgets[$key];
+    }
+
+    $options = array();
+
+    foreach ($ordered_widgets as $k => $widget) {
+      $options[$k] = isset($widget['name']) ? $widget['name'] : $k;
+    }
+  }
+
+  return $options;
+}
+
+/**
+ * Implements hook_rdf_namespaces().
+ *
+ * This is specific to Facebook Widget
+ * Adds an XML namespace to the <html> tag of your document.
+ * This is necessary for XFBML to work in earlier versions of Internet Explorer.
+ *
+ * Ideally this should only be done when using the Facebook widget and
+ * (optimally) when using IE. However, this is harmless and it would be kind
+ * of inefficient to check for these before adding the variable every time.
+ */
+function easy_social_rdf_namespaces() {
+  return array(
+    'fb' => 'http://ogp.me/ns/fb#',
+  );
+}
+
+/**
+ * Helper function to return default values, keeping global settings in mind.
+ *
+ * @param string $name
+ * @return mixed
+ */
+function _easy_social_variable_get_value($name) {
+  $value = variable_get($name);
+
+  if (isset($value)) {
+    return $value;
+  }
+  else if (strpos($name, '_type') !== FALSE) {
+    return variable_get_value('easy_social_global_type');
+  }
+  else if (strpos($name, '_widgets') !== FALSE) {
+    return variable_get_value('easy_social_global_widgets');
+  }
+
+  return variable_get_value($name);
+}

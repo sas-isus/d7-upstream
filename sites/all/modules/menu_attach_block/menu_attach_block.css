@@ -1,0 +1,74 @@
+div.messages.status.block {
+  background-image: none;
+  -ms-border-radius: 10px;
+  -o-border-radius: 10px;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+  display: inline;
+  font-size: x-small;
+  font-style: italic;
+  margin: 0 8px;
+  padding: 2px 8px;
+}
+
+.menu-attach-block-wrapper.orientation-horizontal {
+  position: relative;
+}
+
+.menu-attach-block-wrapper.orientation-horizontal .block {
+  background-color: white;
+  padding: 1em;
+  position: absolute;
+  top: 2.5em;
+  width: 200%;
+  /*
+  Note that overlay module has a z-index of 600.
+  */
+  z-index: 400;
+}
+
+.menu-attach-block-wrapper.orientation-vertical {
+  clear: both;
+}
+
+li.attached-block a {
+  display: inline-block;
+}
+
+a.menu-attach-block-drop-link.external,
+a.menu-attach-block-drop-link.external:hover,
+a.menu-attach-block-drop-link.external:focus,
+#main-menu a.menu-attach-block-drop-link.external,
+#main-menu a.menu-attach-block-drop-link.external:hover,
+#main-menu a.menu-attach-block-drop-link.external:focus,
+#main-menu-links li.active-trail a.menu-attach-block-drop-link.external {
+  background: transparent url("arrow-asc.png") no-repeat scroll 2px;
+  border: 0;
+  display: inline-block;
+  height: 100%;
+  margin: 0;
+  padding: 0 9px;
+  text-indent: -9999em;
+  text-shadow: none;
+  width: 3px;
+}
+
+li a.menu-attach-block-drop-link.external.dropped,
+#main-menu li a.menu-attach-block-drop-link.external.dropped {
+  background-image: url("arrow-desc.png");
+  border: none;
+  height: 100%;
+  margin: 0;
+  padding: 0 9px;
+  text-indent: -9999em;
+  width: 3px;
+}
+
+a.menu-attach-block-drop-link ~ .menu-attach-block-wrapper {
+  display: none;
+}
+
+a.menu-attach-block-drop-link.dropped ~ .menu-attach-block-wrapper {
+  display: initial;
+}

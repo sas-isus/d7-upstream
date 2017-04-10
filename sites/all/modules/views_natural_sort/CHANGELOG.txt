@@ -1,0 +1,19 @@
+===== 7.x-1.4 ======
+
+ * [#1832526] Fix for empty word replacement fields making regex compilation fail.
+ * [#1833388] Making the Help Text make more sense.
+ * [#1853554] Delete node title index on node delete to keep the table smaller.
+
+===== 7.x-1.3 ======
+
+ * [#1042242] Adding ability to Define words and letters to ignore.
+
+===== 7.x-1.2 ======
+ 
+ * [#546794] Implemented code provided by DanChadwick that sets the base standard for numerical sort.
+ * Fixed a divide-by-zero error when enabling module with no nodes.
+
+
+===== 7.x-1.1 ======
+
+ * [#558668] Applied patch contributed by heatherann.

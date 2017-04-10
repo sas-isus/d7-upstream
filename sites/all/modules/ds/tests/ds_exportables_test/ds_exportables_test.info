@@ -1,0 +1,5 @@
+name = Display Suite exportables test
+description = Tests for exportables with Display Suite.
+package = "Display Suite"
+core = 7.x
+hidden = TRUE

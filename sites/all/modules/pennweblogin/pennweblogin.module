@@ -1,0 +1,816 @@
+<?php
+/**
+ * @file
+ * pennweblogin.module
+ *
+ * PennWebLogin Module v. 7.x-1.x
+ *
+ * An implementation of CoSign authentication specific to the University Of Pennsylvania
+ */
+
+/**
+ * Display help and module information
+ * @param section which section of the site we're displaying help
+ * @return help text for section
+ */
+function pennweblogin_help($section = '') {
+    $output = '';
+
+    switch ($section) {
+        case "admin/help#pennweblogin":
+            $output = '<p>' . t("Enables external PennWebLogin authentication.") . '</p>';
+            break;
+    }
+
+    return $output;
+} // function onthisdate_help
+
+/**
+ * Implementation of hook_permission()
+ *
+ * Valid permissions for this module
+ * @return array An array of valid permissions for this module
+ */
+function pennweblogin_permission() {
+    return array(
+        'administer pennweblogin' => array(
+            'title' => t('Administer PennWebLogin'),
+            'description' => t('Perform administrative tasks for PennWebLogin'),
+        ),
+    );
+} // function pennweblogin_perm()
+
+/**
+ * Implementation of hook_boot()
+ *
+ * authenticated sessions should be over ssl to maintain CoSign session
+ * Help with Drupal 7 implementation from auth_ssl_redirect module
+ */
+function pennweblogin_boot() {
+    global $base_root, $base_url, $user;
+
+    if (!isset($_SERVER['HTTPS']) && !$user->uid && isset($_COOKIE['PENNWEBLOGIN'])) {
+        drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+        // Redirect to HTTPS version of this page.
+        // Thanks to securepages (and auth_ssl_redirect!) module for the start of this.
+        $path = request_path();
+        $query = NULL;
+        if (count($_GET) > 1) {
+            // Remove q since it's in $path.
+            unset($_GET['q']);
+            $query = $_GET;
+        }
+        // Check for port.
+        $port = parse_url($base_url, PHP_URL_PORT);
+        if (!empty($port)) {
+            $base = 'https://' . parse_url($base_url, PHP_URL_HOST) . ':' . $port . base_path();
+        }
+        else {
+            $base = 'https://' . parse_url($base_url, PHP_URL_HOST) . base_path();
+        }
+        // Issue redirect.
+        drupal_goto($base . $path, array('query' => $query));
+    }
+}
+
+/**
+ * function pennweblogin_init()
+ * implementation of hook_init()
+ *
+ * If user is authenticated in Drupal, check that username against Cosign credentials
+ * If no matching Cosign credentials exist, log out user
+ */
+function pennweblogin_init() {
+    global $user;
+    $authname = '';
+
+    if (user_is_logged_in()) {
+        $authname = pennweblogin_authenticate();
+        // allow administrator without cosign
+        // also allow users with email address user names if local drupal accounts are enabled
+        if ($authname != $user->name && !($user->uid == 1 || (pennweblogin_valid_email($user->name)) && variable_get('pennweblogin_allow_non_pennkey', ''))) {
+            // code from user_logout()
+            // user_logout() may not be loaded during init
+            watchdog('user', 'Session closed for %name.', array('%name' => $user->name));
+
+            // set autodeny so that user is not redirected to end cosign session
+            // cosign session has already expired, so this is unnecessary
+            $user->autodeny = TRUE;
+
+            module_invoke_all('user_logout', $user);
+
+            // Destroy the current session, and reset $user to the anonymous user.
+            session_destroy();
+
+            $user = drupal_anonymous_user();
+
+            // $_REQUEST['q'] is not set on the site root
+            $path = '';
+            if (isset($_REQUEST['q'])) {
+                $path = $_REQUEST['q'];
+            }
+            drupal_goto($path);
+        }
+    }
+} // function pennweblogin_init()
+
+/**
+ * function pennweblogin_main()
+ *
+ * checks for valid cosign credentials, and redirects if not available
+ */
+function pennweblogin_main() {
+    if (user_is_logged_in()) {
+        // get destination, if set
+        if (isset($_REQUEST['destination'])) {
+            $destination = urldecode($_REQUEST['destination']);
+        }
+        else {
+            $destination = NULL;
+        }
+        // user has already logged in, just redirect
+        drupal_goto($destination);
+    }
+    else {
+        // user is anonymous
+        $penn_key = pennweblogin_authenticate();
+        if ($penn_key) {
+            try {
+                pennweblogin_user_pennkey_load($penn_key);
+            } catch (Exception $e) {
+                // handle user load errors
+            }
+
+            // set destination so user is properly redirected after authentication
+            $destination_array = pennweblogin_get_destination();
+            drupal_goto(urldecode($destination_array['destination']));
+        }
+        else {
+            // direct user to log in
+            drupal_goto('https://' . $_SERVER['SERVER_NAME'] . base_path() . drupal_get_path('module', 'pennweblogin') . '/login/index.php', array('query' => pennweblogin_get_destination()));
+        }
+    }
+} // function pennweblogin_main()
+
+/**
+ * function pennweblogin_user_pennkey_load
+ *
+ * load user based on pennkey
+ * @param string $penn_key
+ */
+function pennweblogin_user_pennkey_load($penn_key) {
+    global $user;
+    if ($account = user_load_by_name($penn_key)) {
+        $user = $account;
+        $array = array();
+        user_login_finalize($array);
+        // module_invoke_all('user_login', $user);
+        // user_module_invoke('login', array(), $user);
+        // Regenerate the session ID to prevent against session fixation attacks.
+        // drupal_session_regenerate();
+    }
+    else {
+        // create a new user based on the cosign/pennkey information
+        // first, assign the default roles as specified in the pennweblogin admin settings form
+        $roles = array();
+        foreach (variable_get('pennweblogin_default_roles', array()) as $key => $value) {
+            if ($value) {
+                $roles[$key] = $value;
+            }
+        }
+        $new_user = array(
+            'name' => $penn_key,
+            'mail' => '',
+            'status' => 1,
+            'pass' => pennweblogin_rand_password(),
+            'roles' => $roles,
+        );
+        $user = user_save(NULL, $new_user);
+        // Regenerate the session ID to prevent against session fixation attacks.
+        // drupal_session_regenerate();
+    }
+}
+
+/**
+ * code adapted from http://prowiki.isc.upenn.edu/wiki/CoSigningWebApplications
+ * check for a valid cosign authentication
+ */
+function pennweblogin_authenticate() {
+    // code adapted from http://prowiki.isc.upenn.edu/wiki/CoSigningWebApplications
+    // Make sure we get the remote user whichever way it is available.
+    $authname = '';
+
+    if (isset($_SERVER['REDIRECT_REMOTE_USER'])) {
+        $authname = $_SERVER['REDIRECT_REMOTE_USER'];
+    }
+    elseif (isset($_SERVER['REMOTE_USER'])) {
+        $authname = $_SERVER['REMOTE_USER'];
+    }
+
+    if ($authname != '') {
+        /*
+         * REMOTE_USER received, however auth could have been
+         * via HTTP Basic or Digest; we check further below
+         */
+        if ($_SERVER['AUTH_TYPE'] == 'Cosign' && (isset($_SERVER['REDIRECT_COSIGN_SERVICE'])) || (isset($_SERVER['COSIGN_SERVICE']))) {
+            $server_param_name = '';
+            // get server parameter name
+            if (isset($_SERVER['REDIRECT_COSIGN_SERVICE'])) {
+                $server_param_name = 'REDIRECT_COSIGN_SERVICE';
+            }
+            elseif (isset($_SERVER['COSIGN_SERVICE'])) {
+                $server_param_name = 'COSIGN_SERVICE';
+            }
+            /* else {
+              $server_param_name = 'COSIGN_SERVICE';
+            } */
+            /*
+             * PHP replaces '.' with '_' in $_COOKIE array keys, so we
+             * do the same in order to index the CoSign service cookie
+             */
+            $service_name = preg_replace('/\./', '_', $_SERVER[$server_param_name]);
+
+            if (isset($_COOKIE[$service_name])) {
+                // return user name
+                return strtolower($authname);
+            }
+        }
+    }
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function pennweblogin_menu() {
+    // only show menu item if user is not authenticated
+    $items['admin/settings/pennweblogin'] = array(
+        'title' => 'PennWebLogin',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('pennweblogin_admin_settings'),
+        'access arguments' => array('administer pennweblogin'),
+        'description' => 'Change settings for the PennWebLogin module.',
+        'file' => 'pennweblogin.admin.inc',
+    );
+    $items['pennweblogin/login'] = array(
+        'title' => 'Penn WebLogin',
+        'page callback' => 'pennweblogin_main',
+        'page arguments' => array(), //drupal_get_destination()????
+        'access callback' => 'user_is_anonymous',
+        'access arguments' => array(),
+        'weight' => 100,
+        'type' => MENU_NORMAL_ITEM,
+    );
+    $items['pennweblogin/confirm'] = array(
+        'title' => 'Penn WebLogin',
+        'page callback' => 'pennweblogin_main',
+        'page arguments' => array(), //drupal_get_destination()????
+        'access callback' => TRUE,
+        'access arguments' => array(),
+        'weight' => 100,
+        'type' => MENU_CALLBACK,
+    );
+    $items['pennweblogin/access_denied'] = array(
+        'title' => 'Access Denied',
+        'page callback' => 'pennweblogin_access_denied',
+        'page arguments' => array(),
+        'access callback' => TRUE,
+        'weight' => 100,
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
+} // function pennweblogin_menu()
+
+/**
+ * Implementation of hook_menu_alter()
+ */
+function pennweblogin_menu_alter(&$items) {
+    // disable native drupal user login and registration by anonymous users
+    if (!variable_get('pennweblogin_allow_non_pennkey', '')) {
+        $items['user/login']['access callback'] = FALSE;
+        $items['user']['access callback'] = 'user_is_logged_in';
+        $items['user/register']['access callback'] = 'user_is_logged_in';
+    }
+} // function pennweblogin_menu_alter()
+
+
+/**
+ * function pennweblogin_theme()
+ *
+ * implementation of hook_theme()
+ */
+function pennweblogin_theme() {
+    return array(
+        'pennweblogin_login_required' => array(
+            'arguments' => array(),
+        ),
+        'pennweblogin_insufficient_privileges' => array(
+            'arguments' => array(),
+        ),
+    );
+} // function pennweblogin_theme()
+
+/**
+ * function theme_pennweblogin_login_required()
+ */
+function theme_pennweblogin_login_required() {
+    drupal_set_title(t('Login Required'));
+    $output = '';
+    $output .= '<div class="pennweblogin-login">';
+    $output .= l(t('Click here to log in using your PennKey.'), 'pennweblogin/login');
+    $output .= '</div>';
+    return $output;
+} // function theme_pennweblogin_login_required()
+
+/**
+ * function theme_pennweblogin_insufficient_privileges()
+ */
+function theme_pennweblogin_insufficient_privileges() {
+    $output = '';
+    $output .= '<div class="pennweblogin-insufficient-privileges">';
+    $output .= 'You do not have sufficient privileges to access this page. ';
+    $output .= t('Please') . ' ' . l(t('contact the site administrator'), 'mailto:' . variable_get('site_mail', 'isus@sas.upenn.edu'), array('attributes' => array('rel' => 'nofollow'))) . ' ' . t('to request access.');
+    $output .= '</div>';
+    return $output;
+} // function theme_pennweblogin_insufficient_privileges()
+
+/**
+ * function pennweblogin_access_denied()
+ *
+ * custom access denied (403) page
+ */
+function pennweblogin_access_denied() {
+    global $user;
+
+    if (user_is_anonymous()) {
+        $output = theme('pennweblogin_login_required');
+        return $output;
+    }
+    else {
+        if (!stripos($_GET['q'], 'pennweblogin')) {
+            // only display this message if not on a pennweblogin page, otherwise redirect
+            $output = theme('pennweblogin_insufficient_privileges');
+            return $output;
+        }
+        else {
+            drupal_goto(str_replace('destination=', '', pennweblogin_get_destination()));
+        }
+    }
+}
+
+/**
+ * Implementation of hook_user_login().
+ */
+function pennweblogin_user_login(&$edit, $account) {
+    // Set the PENNWEBLOGIN cookie.
+    $cookie_params = session_get_cookie_params();
+
+    ppm($cookie_params);
+
+    $domain = _pennweblogin_cookie_domain();
+    $lifetime = 0;
+    if ($cookie_params['lifetime'] > 0) {
+        $lifetime = REQUEST_TIME + $cookie_params['lifetime'];
+    }
+    setcookie('PENNWEBLOGIN', 1, $lifetime, '/', $domain, FALSE);
+}
+
+/**
+ * Implementation of hook_user_logout()
+ */
+function pennweblogin_user_logout($account) {
+    global $user;
+    $user_name = $user->name;
+
+    // get server parameter name
+    if (isset($_SERVER['REDIRECT_COSIGN_SERVICE'])) {
+        $server_param_name = 'REDIRECT_COSIGN_SERVICE';
+    }
+    elseif (isset($_SERVER['COSIGN_SERVICE'])) {
+        $server_param_name = 'COSIGN_SERVICE';
+    }
+    /* else {
+      $server_param_name = 'COSIGN_SERVICE';
+    } */
+    /*
+     * PHP replaces '.' with '_' in $_COOKIE array keys, so we
+     * do the same in order to index the CoSign service cookie
+     */
+    $service_name = preg_replace('/\./', '_', $_SERVER[$server_param_name]);
+
+    // Expire CoSign service cookie
+    setcookie(
+        $service_name, // Name
+        NULL, // Value
+        time() - (60 * 60 * 24), // Expiration: a value in the past (1 day ago)
+        '/', // Path: always '/'
+        $_SERVER['SERVER_NAME'], // Domain: Domain on which your application runs
+        TRUE // Secure: false if CosignHttpOnly is set 'On';
+    //         true if 'Off' or not set
+    );
+
+    // lifted (with modifications) from auth_ssl_redirect
+    $domain = _pennweblogin_cookie_domain();
+    // Delete the AUTHSSL cookie.
+    setcookie('PENNWEBLOGIN', 'deleted', REQUEST_TIME - 3600, '/', $domain, FALSE);
+    unset($_COOKIE['PENNWEBLOGIN']);
+    // -----------------------------
+
+    // only redirect if user called logout directly
+    // if session ended via cosign timeout, fail gracefully and don't redirect
+    if (!isset($user->autodeny) && !(pennweblogin_valid_email($user_name))) {
+        // we are bypassing the rest of user_logout with our implementation of drupal_goto, so kill session here
+        session_destroy();
+
+        drupal_goto('https://weblogin.pennkey.upenn.edu/logout');
+    }
+
+} // function pennweblogin_user_logout()
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function pennweblogin_form_alter(&$form, &$form_state, $form_id) {
+    global $user;
+
+    switch ($form_id) {
+        case 'user_profile_form':
+            $account = $form['#user'];
+            // ppm('user_profile_form');
+            if ($user->uid == $account->uid) {
+                // user is editing own account
+                $account_name = $user->name;
+            }
+            else {
+                $account_name = $form['account']['name']['#default_value'];
+            }
+
+            ppm($account_name);
+            // user profile form, like, duh
+            $form['account']['mail']['#description'] = t('A valid email address. All email messages from the system will be sent to this address. The email address is not made public and will only be used if you wish to receive certain news or notifications by email.');
+            if (($account_name != 'administrator') && !(pennweblogin_valid_email($account_name))) {
+                // unset password field if user has a PennKey account
+                unset($form['account']['pass']);
+                if (!user_access('administer users')) {
+                    // pennkey users should not be able to change their own account name.
+                    // This should be restricted to administrators for those rare circumstances where it makes sense.
+                    unset($form['account']['name']);
+                }
+            }
+            else {
+                ppm('this is a non-pennkey account');
+                // email address *is* user name, so user should have "change own username" permissions to change email address
+                if (user_access('change own username') || user_access('administer users')) {
+                    // reformat name and mail fields
+                    $form['account']['name']['#title'] = t('Email address');
+                    $form['account']['name']['#description'] = t('A valid email address. Your email address will identify you on this system. It will appear in your user profile and will be displayed with any articles or comments you post on this site. All email messages from the system will be sent to this address.');
+
+                    $form['account']['mail']['#title'] = t('Confirm email address');
+                    $form['account']['mail']['#description'] = t('Please retype your email address to make sure it was entered correctly.');
+                    $form['#validate'][] = 'pennweblogin_user_profile_validate';
+
+                }
+                else {
+                    unset($form['account']['name']);
+                    unset($form['account']['mail']);
+                    $form['#validate'] = array();
+                    // ppm($form);
+                }
+
+            }
+
+            break;
+    }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter
+ *
+ * Alters user_profile_form
+ * changes to the native Drupal user profile form
+ */
+function pennweblogin_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
+    global $user;
+    $account = $form['#user'];
+
+    if ($account->name == pennweblogin_authenticate()) {
+        // this is a PennKey user editing own account
+        // get rid of requirement for entering current password to change email address
+        unset($form['account']['current_pass_required_values']);
+        unset($form['account']['current_pass']);
+
+        $form['#validate'] = array(
+            'user_account_form_validate',
+            'user_validate_picture',
+            'user_profile_form_validate',
+        );
+    }
+    // ppm($form);
+} // function pennweblogin_form_user_profile_form_alter()
+
+/**
+ * Implementation of hook_form_FORM_ID_alter
+ *
+ * Alters user_login
+ * changes to the native Drupal user login form
+ */
+function pennweblogin_form_user_login_alter(&$form, &$form_state, $form_id) {
+    global $user;
+    // show warning for PennKey users to not use this form for authentication
+    $pennweblogin_link = '<div class="pennweblogin-link">';
+    $pennweblogin_link .= t('Do not use this form for PennKey authentication.') . ' ';
+    $pennweblogin_link .= l(t('Click here'), 'pennweblogin/login') . ' ' . t('to log in with your PennKey.');
+    $pennweblogin_link .= '</div>';
+    $form['pennweblogin_link'] = array(
+        '#markup' => $pennweblogin_link,
+        '#weight' => -100,
+    );
+
+    $form['name']['#title'] = t('Email address');
+    // ppm($form);
+} // function pennweblogin_form_user_login_alter()
+
+/**
+ * Implementation of hook_form_FORM_ID_alter
+ *
+ * Alters user_register_form
+ */
+function pennweblogin_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+    global $user;
+    // this is the form whereby a user can request an account
+    // or an admin can create an account
+    if (variable_get('pennweblogin_allow_non_pennkey', '')) {
+        // local Drupal accounts are enabled
+        if (user_access('administer users')) {
+            // user is an administrator and is creating an account for a third party
+            $form['pennweblogin_local_account'] = array(
+                '#type' => 'checkbox',
+                '#title' => t('Local Drupal account'),
+                '#default_value' => 0,
+                '#options' => array(t('False'), t('Local Drupal account')),
+                '#description' => t('Only check this box if you are creating a local (non-PennKey authenticated) account. Penn WebLogin via PennKey is more secure and is the preferred method for authentication.'),
+                '#weight' => -100,
+            );
+
+            //check form state to see if this is a local account
+            if ($form_state['input']['pennweblogin_local_account']) {
+                // local account, so alter text to reflect use of email address as user name
+                $form['account']['name']['#title'] = t('Email address');
+                $form['account']['name']['#description'] = t('A valid email address. An email address will identify the user on this system. It will appear in the user profile and may be displayed with any articles or comments posted on this site. All email messages from the system will be sent to this address.');
+
+                $form['account']['mail']['#title'] = t('Confirm email address');
+                $form['account']['mail']['#description'] = t('Please retype the email address to make sure it was entered correctly.');
+            }
+
+            // $form['name']['#description'] = t('A valid email address. The email address will identify the user on this system. It will appear in the user profile and will be displayed with any articles or comments posted on this site. All email messages from the system will be sent to this address.');
+
+            // don't let user set a password
+            unset($form['account']['pass']);
+
+            $form['#validate'][] = 'pennweblogin_user_register_validate';
+            $form['#submit'] = array('pennweblogin_user_register_submit');
+        }
+        elseif (!$user->uid) {
+            // user is anonymous and is requesting a new account
+            // by definition this is a local Drupal account (PennKey accounts are created automatically on authentication)
+            if ($form['account']) {
+                // user_register form with profile fieldsets
+                $form['pennweblogin_local_account'] = array(
+                    '#type' => 'hidden',
+                    '#value' => 1,
+                );
+                $form['account']['name']['#title'] = t('Email address');
+                $form['account']['name']['#description'] = t('A valid email address. Your email address will identify you on this system. It will appear in your user profile and will be displayed with any articles or comments you post on this site. All email messages from the system will be sent to this address.');
+
+                $form['account']['mail']['#title'] = t('Confirm email address');
+                $form['account']['mail']['#description'] = t('Please retype your email address to make sure it was entered correctly.');
+
+            }
+            else {
+                // simple user_register form with no fieldsets
+                $form['pennweblogin_local_account'] = array(
+                    '#type' => 'hidden',
+                    '#value' => 1,
+                );
+                $form['name']['#title'] = t('Email address');
+                $form['name']['#description'] = t('A valid email address. Your email address will identify you on this system. It will appear in your user profile and will be displayed with any articles or comments you post on this site. All email messages from the system will be sent to this address.');
+
+                $form['mail']['#title'] = t('Confirm email address');
+                $form['mail']['#description'] = t('Please retype your email address to make sure it was entered correctly.');
+
+            }
+            // don't let user set a password
+            unset($form['account']['pass']);
+
+            $form['#validate'][] = 'pennweblogin_user_register_validate';
+            $form['#submit'] = array('pennweblogin_user_register_submit');
+        }
+    }
+    else {
+        // only PennKey accounts
+        $form['name']['#description'] = t("Enter the user's PennName.");
+
+        // don't let user set a password
+        unset($form['account']['pass']);
+    }
+} // function pennweblogin_form_user_register_form_alter()
+
+/**
+ * function pennweblogin_user_register_validate($form, &$form_state)
+ *
+ * custom validation callback for the user registration form
+ */
+function pennweblogin_user_register_validate($form, &$form_state) {
+    if ($form_state['values']['pennweblogin_local_account'] && variable_get('pennweblogin_allow_non_pennkey', '')) {
+        $name = $form_state['values']['name'];
+        // non-pennkey accounts are allowed, and this is a non-pennkey account
+        /* user name must be an email address */
+        if (!pennweblogin_valid_email($name)) {
+            form_set_error('name', 'The email address does not appear to be in a valid format.');
+        }
+        if ($form_state['values']['name'] != $form_state['values']['mail']) {
+            form_set_error('mail', 'The email address values do not match.');
+        }
+    }
+    else {
+        // user name should be a valid pennkey format
+        if (!preg_match('/^[a-zA-Z][a-zA-Z0-9]{1,7}$/', $form_state['values']['name'])) {
+            form_set_error('name', 'The user name must be a valid PennKey. PennKeys start with a letter, contain no special characters, and are up to 8 characters long.');
+        }
+    }
+}
+
+/**
+ * function pennweblogin_user_profile_validate($form, &$form_state)
+ *
+ * custom validation callback for the user profile form
+ */
+function pennweblogin_user_profile_validate($form, &$form_state) {
+    $name = $form_state['values']['name'];
+    /* user name must be an email address */
+    if (!pennweblogin_valid_email($name)) {
+        form_set_error('name', 'The email address does not appear to be in a valid format.');
+    }
+    if ($form_state['values']['name'] != $form_state['values']['mail']) {
+        form_set_error('mail', 'The email address values do not match.');
+    }
+}
+
+/**
+ * function pennweblogin_user_register_submit($form, &$form_state)
+ *
+ * custom submission callback for the user registration form
+ */
+function pennweblogin_user_register_submit($form, &$form_state) {
+    $name = $form_state['values']['name'];
+    $form_state['values']['pass'] = pennweblogin_rand_password();
+    user_register_submit($form, $form_state);
+}
+
+/**
+ * function pennweblogin_get_destination()
+ *
+ * unlike drupal_get_destination, this function returns a formatted
+ * destination query string based on the referer, rather than the current page
+ */
+function pennweblogin_get_destination() {
+    $domain = $_SERVER['SERVER_NAME'];
+    $referer = $_SERVER['HTTP_REFERER'];
+    $result = array();
+    if (isset($_REQUEST['destination'])) {
+        $result['destination'] = urlencode($_REQUEST['destination']);
+    }
+    elseif (stripos($referer, $domain) !== FALSE) {
+        // no destination, refering page was local?
+        // yes, registration page was accessed from a local page
+        $parsed_url = parse_url($referer);
+        $path = trim($parsed_url['path'], '/');
+        $base_path = substr(base_path(), 1);
+        if (strlen($base_path) > strlen($path)) {
+            // user is at root of site
+            $path = '';
+        }
+        else {
+            $path = str_replace($base_path, '', $path);
+        }
+        $path_array = explode('/', $path);
+        // if (($path_array[0] != 'user') && ($path_array[0] != 'logout') && ($path_array[0] != 'pennweblogin') && ($path_array[0] != 'login')) { // exclude any redirects from user* pages
+        if (($path_array[0] != 'user') && ($path_array[0] != 'pennweblogin') && ($path_array[0] != 'login')) { // exclude any redirects from user* pages
+            $result['destination'] = urlencode($path);
+        }
+    }
+    return $result;
+} // function pennweblogin_get_destination()
+
+/**
+ * function pennweblogin_is_secure()
+ *
+ * Check if the current page is SSL
+ */
+function pennweblogin_is_secure() {
+    return (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? TRUE : FALSE;
+} // function pennweblogin_is_secure()
+
+/**
+ * function pennweblogin_redirect_secure()
+ *
+ * redirect browser to connect over SSL
+ */
+function pennweblogin_redirect_secure() {
+    if (function_exists('module_invoke_all')) {
+        foreach (module_implements('exit') as $module) {
+            if ($module != 'devel') {
+                module_invoke($module, 'exit');
+            }
+        }
+    }
+    else {
+        bootstrap_invoke_all('exit');
+    }
+    // redirect to SSL
+    $url = 'https://' . $_SERVER['SERVER_NAME'] . base_path() . '?' . $_SERVER['QUERY_STRING'];
+    header('Location: ' . $url);
+} // function pennweblogin_redirect_secure
+
+/**
+ * function pennweblogin_rand_password($length=12)
+ *
+ * generates a random password to save as a drupal native password
+ */
+function pennweblogin_rand_password($length = 12) {
+    $vowels = 'aeuyAEUY';
+    $consonants = 'bdghjmnpqrstvzBDGHJLMNPQRSTVWXZ23456789@#$%';
+
+    $password = '';
+    $alt = time() % 2;
+    for ($i = 0; $i < $length; $i++) {
+        if ($alt == 1) {
+            $password .= $consonants[(rand() % strlen($consonants))];
+            $alt = 0;
+        }
+        else {
+            $password .= $vowels[(rand() % strlen($vowels))];
+            $alt = 1;
+        }
+    }
+    return $password;
+}
+
+/**
+ * Returns true if $email passes our regex validation test
+ *
+ * @param $email string
+ * @return boolean
+ */
+function pennweblogin_valid_email($email) {
+    if (preg_match("/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$/", $email)) {
+        ppm('Email address user name.');
+    }
+    return preg_match("/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$/", $email);
+}
+
+/**
+ * function ppm
+ *
+ * a wrapper for the devel module dpm function
+ */
+function ppm($value) {
+    if (module_exists('devel')) {
+        dpm($value);
+    }
+}
+
+/**
+ * Helper function returns cookie domain.
+ *
+ * lifted from auth_ssl_redirect.module
+ */
+function _pennweblogin_cookie_domain() {
+    global $cookie_domain;
+    $domain = '';
+    $cookie_params = session_get_cookie_params();
+    $pennweblogin_domain = variable_get('pennweblogin_cookie_domain', FALSE);
+    if ($pennweblogin_domain) {
+        $domain = $pennweblogin_domain;
+    }
+    elseif (!empty($cookie_params['domain'])) {
+        $domain = $cookie_params['domain'];
+    }
+    elseif (!empty($cookie_domain)) {
+        $domain = $cookie_domain;
+    }
+    elseif (!empty($_SERVER['HTTP_HOST'])) {
+        $cookie_domain = $_SERVER['HTTP_HOST'];
+        // Strip leading periods, www., and port numbers from cookie domain.
+        $cookie_domain = ltrim($cookie_domain, '.');
+        if (strpos($cookie_domain, 'www.') === 0) {
+            $cookie_domain = substr($cookie_domain, 4);
+        }
+        $cookie_domain = explode(':', $cookie_domain);
+        $domain = $cookie_domain[0];
+    }
+    // Force cookie to have leading period to support subdomains.
+    if (!empty($domain)) {
+        $domain = '.' . ltrim($domain, '.');
+    }
+    return $domain;
+}

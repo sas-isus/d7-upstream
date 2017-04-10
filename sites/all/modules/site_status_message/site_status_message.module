@@ -1,0 +1,131 @@
+<?php
+/**
+ * @file
+ * Site Status Message is a module that provides a configurable page top
+ * message.
+ *
+ * @author: Gideon Cresswell (SkidNCrashwell) <https://drupal.org/user/407780>
+ */
+
+/**
+ * Implements hook_help().
+ */
+function site_status_message_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#site_status_message':
+      $output = '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('The Site Status Message is a simple module to display a site wide message to your users at the top of each page. Use cases could be to inform of known downtime in the future, to advertise a special offer on the site or some important news that needs highlighting.') . '</p>';
+      $output .= '<p>' . t('An optional link to a page with more information can be displayed after the message.') . '</p>';
+      $output .= '<p>' . t('The settings for this module can be configured on the <a href="@url">Site Information</a> page.', array('@url' => '/admin/config/system/site-information#edit-site-status')) . '</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_page_build().
+ */
+function site_status_message_page_build(&$page) {
+  $site_status_message = trim(variable_get('site_status_message_message', NULL));
+  if ($site_status_message) {
+    if (!variable_get('site_status_message_admin', '') && path_is_admin(current_path())) {
+      return;
+    }
+
+    $variables = array();
+    $variables['message'] = $site_status_message;
+    $variables['link'] = variable_get('site_status_message_link', NULL);
+
+    $page['page_top']['site_status_message'] = array(
+      '#type'   => 'markup',
+      '#markup' => theme('site_status_message', $variables),
+      '#attached' => array(
+        'css' => array(
+          drupal_get_path('module', 'site_status_message') . '/css/site_status_message.css',
+        ),
+      ),
+      '#access' => user_access('access content'),
+    );
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function site_status_message_form_system_site_information_settings_alter(&$form, &$form_state, $form_id) {
+  $form['site_status'] = array(
+    '#type'  => 'fieldset',
+    '#title' => 'Site Status',
+    'site_status_message_message' => array(
+      '#type'          => 'textfield',
+      '#maxlength'     => 256,
+      '#title'         => 'Status message',
+      '#default_value' => variable_get('site_status_message_message', NULL),
+      '#description'   => t('A message to display at the top of each page.'),
+    ),
+    'site_status_message_link' => array(
+      '#type'          => 'textfield',
+      '#size'          => 40,
+      '#maxlength'     => 256,
+      '#title'         => 'More information page',
+      '#default_value' => variable_get('site_status_message_link', NULL) ? drupal_get_path_alias(variable_get('site_status_message_link', NULL)) : NULL,
+      '#description'   => t('An optional link to show more information about the status message.'),
+      '#field_prefix'  => url(NULL, array('absolute' => TRUE)),
+    ),
+    'site_status_message_readmore' => array(
+      '#type'          => 'textfield',
+      '#size'          => 40,
+      '#maxlength'     => 128,
+      '#title'         => 'More information link text',
+      '#default_value' => variable_get('site_status_message_readmore', 'Read more'),
+      '#description'   => t('The text to display on the "More Information" link.'),
+    ),
+    'site_status_message_admin' => array(
+      '#type'          => 'checkbox',
+      '#title'         => 'Show on Admin pages',
+      '#default_value' => variable_get('site_status_message_admin', ''),
+    ),
+  );
+  $form['#validate'][] = 'site_status_message_form_validate';
+}
+
+/**
+ * Validates the submitted site-information form.
+ */
+function site_status_message_form_validate($form, &$form_state) {
+  // Validate that the More Information page exists.
+  $link = $form_state['values']['site_status_message_link'];
+  if (!empty($link) && !drupal_valid_path(drupal_get_normal_path($link))) {
+    form_set_error('site_status_message_link', t('You must enter a valid internal path.'));
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function site_status_message_theme($existing, $type, $theme, $path) {
+  return array(
+    'site_status_message' => array(
+      'arguments' => array(
+        'message' => NULL,
+        'link'    => NULL,
+      ),
+      'template'  => 'site-status-message',
+      'path' => drupal_get_path('module', 'site_status_message') . '/template',
+    ),
+  );
+}
+
+/**
+ * Preprocess function for the theme template.
+ */
+function site_status_message_preprocess_site_status_message(&$variables) {
+  $path = drupal_get_normal_path($variables['link']);
+  if (drupal_valid_path($path)) {
+    $readmore = filter_xss(variable_get('site_status_message_readmore', 'Read more'));
+    $variables['link'] = l($readmore, $path);
+  }
+  else {
+    $variables['link'] = NULL;
+  }
+  $variables['message'] = filter_xss($variables['message']);
+}

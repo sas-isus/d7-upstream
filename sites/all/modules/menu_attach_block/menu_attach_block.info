@@ -1,0 +1,17 @@
+name = Menu Attach Block
+description = "Embed blocks into menu items."
+core = 7.x
+
+dependencies[] = menu
+dependencies[] = block
+
+stylesheets[all][] = menu_attach_block.css
+configure = admin/structure/menu
+files[] = menu_attach_block.test
+
+; Information added by Drupal.org packaging script on 2015-02-27
+version = "7.x-1.20"
+core = "7.x"
+project = "menu_attach_block"
+datestamp = "1425049186"
+

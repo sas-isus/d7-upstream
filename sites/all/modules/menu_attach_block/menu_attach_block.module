@@ -1,0 +1,470 @@
+<?php
+
+/**
+ * @file
+ * Module to enable adding a block to menu item.
+ *
+ * This allows an admin to select a block for a menu item as well as, or
+ * instead of, a title and link. When the link is rendered, the block is
+ * inserted in the containing element after the <a> tag.
+ *
+ *  Based heavily on menu_views.module.
+ *
+ * @link http://drupal.org/project/menu_views @endlink
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function menu_attach_block_menu() {
+  return array(
+    'menu_attach_block/ajax/%' => array(
+      'title' => 'AJAX callback for providing rendered block contents.',
+      'page callback' => 'menu_attach_block_render_ajax_block',
+      'page arguments' => array(2),
+      'type' => MENU_CALLBACK,
+      'access callback' => TRUE,
+    ),
+    '<block>' => array(
+      'page callback' => 'drupal_not_found',
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    ),
+    '<droplink>' => array(
+      'page callback' => 'drupal_not_found',
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function menu_attach_block_theme() {
+  return array(
+    'menu_attach_block_wrapper' => array(
+      'template' => 'menu_attach_block_wrapper',
+      'arguments' => array('content' => NULL, 'orientation' => NULL),
+    ),
+  );
+}
+
+/**
+ * Override theme_link().
+ *
+ * Render a block inside a link.
+ *
+ * @todo Implement a theme function to do the render.
+ *
+ * @param array $variables
+ *   Array of theme variables as would be passed to theme_link().
+ *
+ * @return string
+ *   HTML for a link with an attached block.
+ */
+function menu_attach_block_link(&$variables) {
+  // Don't run all the block logic if we're told its not needed.
+  if (isset($variables['menu_attach_block_no_render']) && $variables['menu_attach_block_no_render']) {
+    return theme('menu_attach_block_link_default', $variables);
+  }
+
+  $block = FALSE;
+  $options = $variables['options'];
+  // If a block is attached to this menu item, load it.
+  if (isset($options['menu_attach_block']) && !empty($options['menu_attach_block']['name'])) {
+    $block = menu_attach_block_load_from_key($options['menu_attach_block']['name']);
+  }
+
+  // Render a block if one is attached to this link.
+  if ($block) {
+    // Render the link with the block content afterwards.
+    $link = '';
+    // menu_attach_block gives users the option to select '<block>' as the menu
+    // path for a link.
+    if ($variables['path'] != '<block>' && $variables['path'] != '<droplink>') {
+      // Build the link manually instead of using l() to avoid getting caught in
+      // theme_link() again.
+      $variables['menu_attach_block_no_render'] = TRUE;
+      $link = theme('link', $variables);
+    }
+    else {
+      // remove link
+      $link = '';
+    }
+
+    if ($options['menu_attach_block']['use_ajax'] || !$options['menu_attach_block']['no_drop']) {
+      $menu_classes = array('menu-attach-block-drop-link');
+      if ($options['menu_attach_block']['use_ajax']) {
+        $menu_classes[] = 'menu-ajax-enabled';
+      }
+
+      if ($variables['path'] == '<droplink>') {
+        // use menu item as drop link, add other class passed in on $variables
+        if (isset($variables['attributes']['class'])) {
+          $menu_classes = array_merge($menu_classes, $variables['attributes']['class']);
+        }
+      }
+      else {
+        // add class 'external' to "More" link to apply styles
+        $menu_classes[] = 'external';
+      }
+
+      if ($options['menu_attach_block']['on_hover']) {
+        $menu_classes[] = 'expand-on-hover';
+      }
+      else {
+        $menu_classes[] = 'expand-on-click';
+      }
+
+      // if 'expanded on load' set, add class 'dropped'
+      if (isset($variables['options']['menu_attach_block']['dropped']) && $variables['options']['menu_attach_block']['dropped']) {
+        $menu_classes[] = 'dropped';
+      }
+
+      $attributes = array(
+        'class' => implode(' ', $menu_classes),
+        'data-block-id' => $options['menu_attach_block']['name'],
+        'id' => $variables['path'] . '-drop-link-' . $variables['options']['menu_attach_block']['mlid'],
+      );
+
+      // Pass a space as the fragment parameter to get a <a href='# '> link.
+      // @link http://bit.ly/zZXArS @endlink
+      $l_options = array(
+        'fragment' => ' ',
+        'external' => TRUE,
+        'attributes' => $attributes,
+      );
+
+      if ($variables['path'] == '<droplink>') {
+        // use menu item as drop link
+        $link .= l($variables['text'], '', $l_options);
+      }
+      else {
+        $link .= PHP_EOL . l(t('More'), '', $l_options);
+      }
+
+      drupal_add_js(drupal_get_path('module', 'menu_attach_block') . '/menu_attach_block.js');
+    }
+
+    $block_output = '';
+    // Get the block html if normal rendering is used (not ajax).
+    if (!$options['menu_attach_block']['use_ajax']) {
+      $block_output = menu_attach_block_block_render($block['module'], $block['delta']);
+    }
+    else {
+      $block_output = '<span class="ajax-progress"><span class="throbber"></span></span>';
+    }
+
+    if (!empty($block_output)) {
+      $variables = array(
+        'orientation' => $options['menu_attach_block']['orientation'],
+        'content' => $block_output,
+      );
+      $block_output = theme('menu_attach_block_wrapper', $variables);
+      return $link . $block_output;
+    }
+  }
+
+  // Otherwise, pass through to the original theme function (likely theme_link).
+  return theme('menu_attach_block_link_default', $variables);
+}
+
+/**
+ * Processes variables for menu_attach_block.tpl.php.
+ *
+ * @param array $variables
+ *   Array of theme variables, with members:
+ *    - content: HTML of embedded block.
+ *    - orientation: Menu orientation: either horizontal or vertical.
+ */
+function template_preprocess_menu_attach_block_wrapper(&$variables) {
+  // Add new CSS classes to be processed by template_process. This allows for
+  // other preprocess functions to easily alter the list of classes for the
+  // wrapper before they are output.
+  if ($variables['orientation'] != 'none') {
+    $variables['classes_array'][] = drupal_html_class('orientation-' . $variables['orientation']);
+  }
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function menu_attach_block_preprocess_links(&$variables) {
+  $attached_block = FALSE;
+  // Very quick hacky check to prevent notices on install.
+  // @todo Investigate in more detail.
+  if (array_key_exists('links', $variables) && is_array($variables['links']) && count($variables['links'])) {
+    foreach ($variables['links'] as $key => &$link) {
+      if (is_array($link) &&
+        array_key_exists('menu_attach_block', $link) &&
+        empty($link['menu_attach_block']['name']) == FALSE
+      ) {
+
+        $attached_block = TRUE;
+
+        $link['attributes']['class'][] = 'attached-block';
+        // Rebuild the keys of the array, preserving the order. Array keys are
+        // used for keys in the li element of link lists - @see theme_links.
+        $new_links[$key . ' attached-block'] = $link;
+      }
+      else {
+        $new_links[$key] = $link;
+      }
+    }
+    if ($attached_block) {
+      $variables['links'] = $new_links;
+    }
+  }
+}
+
+/**
+ * Implements hook_theme_registry_alter().
+ *
+ * Intercepts hook_link().
+ */
+function menu_attach_block_theme_registry_alter(&$registry) {
+  // Save previous value from registry in case another module/theme
+  // overwrites link.
+  $registry['menu_attach_block_link_default'] = $registry['link'];
+  $registry['link']['function'] = 'menu_attach_block_link';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Appends the attached block's title to the title of the menu item.
+ */
+function menu_attach_block_form_menu_overview_form_alter(&$form, &$form_state) {
+  $elements = element_children($form);
+
+  foreach ($elements as $mlid) {
+    $element = &$form[$mlid];
+    // Only process menu items.
+    if (isset($element['#item'])) {
+      $item = &$element['#item'];
+      $options = $item['options'];
+      if (isset($options['menu_attach_block']) && !empty($options['menu_attach_block']['name'])) {
+        $block = menu_attach_block_load_from_key($options['menu_attach_block']['name'], 'info');
+        if ($block !== FALSE) {
+          $info = $block[$block['delta']]['info'];
+          $title = '';
+          if ($item['link_path'] != '<block>') {
+            // Manually create the link, otherwise it will be caught by
+            // menu_attach_block_link().
+            $title = '<a href="' . check_url(url($item['href'], $item['localized_options'])) . '"' . drupal_attributes($item['localized_options']['attributes']) . '>' . check_plain($item['title']) . '</a> ';
+          }
+          $link = l($info, 'admin/structure/block/manage/' . $block['module'] . '/' . $block['delta'] . '/configure');
+          $element['title']['#markup'] = $title . '<div class="messages status block">Attached block:  ' . $link . ' </div>';
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Inserts a block selector.
+ */
+function menu_attach_block_form_menu_edit_item_alter(&$form, &$form_state) {
+  if (isset($form['link_path']['#description'])) {
+    $form['link_path']['#description'] .= ' ' . t('Enter %block to disable the link and display only the attached block. Enter %droplink to have link show/hide block via javascript.', array(
+        '%block' => '<block>',
+        '%droplink' => '<droplink>',
+      ));
+  }
+
+  $form['menu_attach_block'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Attach block'),
+    '#description' => t('Choose a block to be rendered as part of this menu item.'),
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    '#prefix' => '<div id="menu-block">',
+    '#suffix' => '</div>',
+    '#tree' => TRUE,
+  );
+
+  $options = array();
+  // @todo Change to use code similar to that in block_admin_display().
+  $blocks = _block_rehash();
+  foreach ($blocks as $block) {
+    $options[$block['module'] . '|' . $block['delta']] = $block['info'];
+  }
+  asort($options);
+
+  $form['menu_attach_block']['name'] = array(
+    '#type' => 'select',
+    '#title' => t('Block'),
+    '#empty_option' => t('- None -'),
+    '#description' => t('Select a block to attach.'),
+    '#default_value' => isset($form['options']['#value']['menu_attach_block']['name']) ? $form['options']['#value']['menu_attach_block']['name'] : '',
+    '#options' => $options,
+  );
+
+  $form['menu_attach_block']['use_ajax'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use AJAX for Loading Content'),
+    '#description' => t('Load blocks via an AJAX call, instead of rendering them with standard page output.'),
+    '#default_value' => isset($form['options']['#value']['menu_attach_block']['use_ajax']) ? $form['options']['#value']['menu_attach_block']['use_ajax'] : FALSE,
+  );
+  $form['menu_attach_block']['no_drop'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Don't render javascript drop link"),
+    '#description' => t('When unchecked, small links are rendered beside menu items, which are used to show/hide the attached block.'),
+    '#default_value' => isset($form['options']['#value']['menu_attach_block']['no_drop']) ? $form['options']['#value']['menu_attach_block']['no_drop'] : FALSE,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="menu_attach_block[use_ajax]"]' => array('checked' => FALSE),
+      ),
+    ),
+  );
+  $form['menu_attach_block']['dropped'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show expanded on load'),
+    '#description' => t('Show the block by default, instead of hiding it.'),
+    '#default_value' => isset($form['options']['#value']['menu_attach_block']['dropped']) ? $form['options']['#value']['menu_attach_block']['dropped'] : FALSE,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="menu_attach_block[use_ajax]"]' => array('checked' => FALSE),
+        ':input[name="menu_attach_block[no_drop]"]' => array('checked' => FALSE),
+      ),
+    ),
+  );
+  $form['menu_attach_block']['on_hover'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Trigger expansion on mouse hover'),
+    '#description' => t('Show block on hover instead of click.'),
+    '#default_value' => isset($form['options']['#value']['menu_attach_block']['on_hover']) ? $form['options']['#value']['menu_attach_block']['on_hover'] : FALSE,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="menu_attach_block[no_drop]"]' => array('checked' => FALSE),
+      ),
+    ),
+  );
+  $form['menu_attach_block']['orientation'] = array(
+    '#type' => 'select',
+    '#title' => t('Menu orientation'),
+    '#default_value' => isset($form['options']['#value']['menu_attach_block']['orientation']) ? $form['options']['#value']['menu_attach_block']['orientation'] : 'horizontal',
+    '#options' => array(
+      'horizontal' => t('Horizontal'),
+      'vertical' => t('Vertical'),
+      'none' => t('None'),
+    ),
+  );
+
+  // Inject handlers.
+  $form['#validate'] = array_merge(array('menu_attach_block_menu_edit_item_validate'), $form['#validate']);
+  $form['#submit'] = array_merge(array('menu_attach_block_menu_edit_item_submit'), $form['#submit']);
+}
+
+/**
+ * Validate handler for menu_edit_item form.
+ */
+function menu_attach_block_menu_edit_item_validate($form, &$form_state) {
+  // Only run this validation when the form is fully submitted.
+  if ($form_state['submitted']) {
+    if ($form_state['values']['link_path'] == '<block>' && $form_state['values']['menu_attach_block']['name'] == '') {
+      form_set_error('menu_attach_block][name', t('The link path has been set to %block. You must select a block to attach to this menu item.', array('%block' => '<block>')));
+    }
+  }
+}
+
+/**
+ * Submit handler for menu_edit_item form.
+ *
+ * @todo Handle removal of block attachments from menu items.
+ */
+function menu_attach_block_menu_edit_item_submit($form, &$form_state) {
+  // Save menu_attach_blocks values in the links options.
+  $values = &$form_state['values'];
+  if (isset($values['menu_attach_block'])) {
+    $values['menu_attach_block']['mlid'] = $values['original_item']['mlid'];
+    $values['menu_attach_block']['plid'] = $values['original_item']['plid'];
+
+    if ($values['menu_attach_block']['use_ajax']) {
+      $values['menu_attach_block']['no_drop'] = 0;
+      $values['menu_attach_block']['dropped'] = 0;
+    }
+    elseif ($values['menu_attach_block']['no_drop']) {
+      $values['menu_attach_block']['dropped'] = 0;
+      $values['menu_attach_block']['on_hover'] = 0;
+    }
+
+    $values['options']['menu_attach_block'] = $values['menu_attach_block'];
+  }
+
+  unset($values['menu_attach_block']);
+}
+
+/**
+ * Loads a block object using a menu_attach_block key.
+ *
+ * Block references are saved in the menu object in the format module|delta.
+ *
+ * @param string $key
+ *   Key as saved by the menu admin form, in the format module|delta.
+ * @param string $hook
+ *   name of hook_block implementation to call to get extra data about a block.
+ *   Do not include the 'block_' prefix.
+ *
+ * @return array
+ *   Fully loaded block array.
+ *
+ * @see http://api.drupal.org/api/search/7/hook_block
+ */
+function menu_attach_block_load_from_key($key, $hook = FALSE) {
+  $block = (array) call_user_func_array('block_load', explode('|', $key));
+  // If no 'theme' key is set, then there is no such block.
+  if (!array_key_exists('theme', $block)) {
+    return FALSE;
+  }
+  if ($hook) {
+    // Hack for hook_block_info for blocks with numeric keys.
+    if ($hook === 'info' && is_numeric($block['delta'])) {
+      $info = module_invoke($block['module'], 'block_info', $block['delta']);
+      $info = $info[$block['delta']];
+      $block[$block['delta']] = $info;
+    }
+    else {
+      $block = array_merge($block, (array) module_invoke($block['module'], 'block_' . $hook, $block['delta']));
+    }
+  }
+  return $block;
+}
+
+/**
+ * Helper function to render a block's HTML.
+ *
+ * @param string $module
+ *   Name of module that implements the block.
+ * @param string $delta
+ *   Unique ID of the block.
+ *
+ * @return string
+ *   HTML of rendered block.
+ *
+ * @see http://drupal.org/node/26502#comment-4705330
+ */
+function menu_attach_block_block_render($module, $delta) {
+  $block = block_load($module, $delta);
+  $block_content = _block_render_blocks(array($block));
+  $build = _block_get_renderable_array($block_content);
+  $block_rendered = drupal_render($build);
+  return $block_rendered;
+}
+
+/**
+ * Prints block content, suitable for use with AJAX callbacks.
+ *
+ * @param string $block_id
+ *   Block name separated by | (pipe operator).
+ *
+ * @todo Move to use core AJAX instead of implementing via jQuery only.
+ */
+function menu_attach_block_render_ajax_block($block_id) {
+  $block = menu_attach_block_load_from_key($block_id);
+  print menu_attach_block_block_render($block['module'], $block['delta']);
+  return;
+}

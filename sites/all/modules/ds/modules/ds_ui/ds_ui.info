@@ -1,0 +1,5 @@
+name = "Display Suite UI"
+description = "User interface for managing fields, view modes and classes."
+core = "7.x"
+package = "Display Suite"
+dependencies[] = ds

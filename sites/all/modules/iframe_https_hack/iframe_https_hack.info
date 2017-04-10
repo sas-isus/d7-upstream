@@ -1,0 +1,9 @@
+name = IFrame HTTPS Hack
+description = "A quick javascript hack to make iframes protocol agnostic."
+core = 7.x
+
+files[] = iframe_https_hack.js
+
+version = "7.x-1.0"
+core = "7.x"
+

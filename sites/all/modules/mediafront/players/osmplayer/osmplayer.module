@@ -1,0 +1,783 @@
+<?php
+
+// Open Standard Media Player:  Provides the osmplayer functionality to the MediaFront module.
+require_once( drupal_get_path('module', 'osmplayer') . '/player/OSMPlayer.php' );
+
+/**
+ * Implements hook_get_player()
+ */
+function osmplayer_get_player($params) {
+  $template = (isset($params['template']) && $params['template']) ? $params['template'] : "default";
+  $showPlayer = isset($params['showWhenEmpty']) ? $params['showWhenEmpty'] : TRUE;
+
+  // Always show the player when viewing through the admin interface.
+  $showPlayer |= !empty($params['admin']);
+
+  // If they provide the playlist object, encode it as JSON.
+  if (isset($params['playlistObj']) && $params['playlistObj']) {
+    $showPlayer |= ( $params['playlistObj']['total_rows'] > 0);
+    $params['playlist'] = drupal_json_encode($params['playlistObj']);
+  }
+  else {
+    $showPlayer |= isset($params['playlist']) && $params['playlist'];
+  }
+
+  // If they provide the node object, encode it as JSON.
+  if (isset($params['nodeObj']) && $params['nodeObj']) {
+    $showPlayer |= isset($params['nodeObj']['mediafiles']) && (count($params['nodeObj']['mediafiles']) > 0);
+    $params['node'] = drupal_json_encode($params['nodeObj']);
+  }
+  else {
+    $showPlayer |= isset($params['node']) && $params['node'];
+  }
+  
+  // Iterate through each parameter and filter it for output.
+  foreach ($params as $param => &$value) {
+    if (gettype($value) == 'string') {
+      $value = check_plain($value);
+    }
+  }  
+
+  // Show the player.
+  return $showPlayer ? theme('osmplayer_' . $template, array('params' => $params)) : '';
+}
+
+/**
+ * Returns the path to the OSM Player.
+ */
+function osmplayer_get_path() {
+  return drupal_get_path('module', 'osmplayer') . '/player';
+}
+
+/**
+ * Returns the OSMPlayer object.
+ */
+function osmplayer_get_player_object($settings = null) {
+  global $base_url, $user;
+  static $instance = 0;
+
+  $player = null;
+  if ($settings['preset']) {
+    $preset = $settings['preset'];
+    if ($settings) {
+      // Create the OSMPlayer object with these settings.
+      $playerPath = osmplayer_get_path();
+      $settings['id'] = 'mediafront_' . $preset;
+      $settings['prefix'] = $settings['id'] . '_';
+      $settings['baseURL'] = $base_url;
+      $settings['gateway'] = $base_url . '/services/xmlrpc';
+
+      if (isset($settings['flashPlayer'])) {
+        $settings['flashPlayer'] = $base_url . '/' . $playerPath . '/' . $settings['flashPlayer'];
+      }
+      if (isset($settings['logo'])) {
+        $logoPath = ($settings['logo'] == 'logo.png') ? ($playerPath . '/') : '';
+        $settings['logo'] = $base_url . '/' . $logoPath . $settings['logo'];
+      }
+
+      // Create the OSMPlayer object with these settings.
+      $player = new OSMPlayer($settings);
+      $player->setId(($instance > 0) ? $player->getId() . '_' . $instance : $player->getId());
+      $instance++;
+
+      // Set the session id for the player.
+      if (isset($user->sid)) {
+        $player->setSessionId($user->sid);
+      }
+
+      // Set the CSS directory of our OSMPlayer component.
+      $player->template->setCSSDir(osmplayer_get_css_dir());
+
+      // Now add our playlist connections.
+      if (isset($settings['connect']) && isset($settings['connect']['isplaylist'])) {
+        foreach ($settings['connect']['isplaylist'] as $toPlayer) {
+          $player->addPlaylistTo('mediafront_' . $toPlayer);
+        }
+      }
+
+      // Now add our controller connections.
+      if (isset($settings['connect']) && isset($settings['connect']['iscontroller'])) {
+        foreach ($settings['connect']['iscontroller'] as $toPlayer) {
+          $player->addControllerTo('mediafront_' . $toPlayer);
+        }
+      }
+    }
+    else {
+      drupal_set_message('Initializing OSMPlayer without settings!', 'error');
+    }
+  }
+  else {
+    drupal_set_message('No preset defined to declare the OSMPlayer object!', 'error');
+  }
+  return $player;
+}
+
+/**
+ * Implements hook_player_info()
+ */
+function osmplayer_player_info() {
+  $info = array();
+  $info['osmplayer'] = array(
+    'title' => 'Open Standard Media Player',
+    'description' => 'An Open Source - Open Standard, full featured media player.'
+  );
+  return $info;
+}
+
+function osmplayer_add_theme(&$themes, $template, $component, $path) {
+
+  // The template name.
+  $template = 'osmplayer_' . $template . '_' . $component;
+
+  // Get the template file.
+  $file = getcwd() . '/' . $path . '/' . $template . '.tpl.php';
+
+  // Check to make sure the file exists.
+  if (file_exists($file)) {
+
+    // Add this theme.
+    $themes[$template] = array(
+      'template' => $template,
+      'variables' => array('params' => NULL, 'templates' => NULL),
+      'path' => $path
+    );
+
+    // Check for the preprocess function.
+    $preprocess = 'template_preprocess_osmplayer_' . $component;
+    if (function_exists($preprocess)) {
+      $themes[$template]['preprocess functions'] = array($preprocess);
+    }
+  }
+}
+
+/**
+ * Implements hook_theme()
+ */
+function osmplayer_theme() {
+  $templates = osmplayer_get_templates();
+  $themes = array();
+
+  $path = osmplayer_get_path() . '/templates';
+
+  foreach ($templates as $template) {
+    $template_path = ($path . '/' . $template);
+
+    $themes['osmplayer_' . $template] = array(
+      'template' => 'osmplayer_' . $template,
+      'variables' => array('params' => NULL, 'templates' => NULL),
+      'path' => $template_path,
+      'preprocess functions' => array('template_preprocess_osmplayer')
+    );
+
+    // Add all of our player components, if they exist...
+    osmplayer_add_theme($themes, $template, 'titlebar', $template_path);
+    osmplayer_add_theme($themes, $template, 'menu', $template_path);
+    osmplayer_add_theme($themes, $template, 'controlbar', $template_path);
+    osmplayer_add_theme($themes, $template, 'node', $template_path);
+    osmplayer_add_theme($themes, $template, 'teaser', $template_path);
+    osmplayer_add_theme($themes, $template, 'playlist', $template_path);
+    osmplayer_add_theme($themes, $template, 'scrollbar', $template_path);
+    osmplayer_add_theme($themes, $template, 'pager', $template_path);
+  }
+  return $themes;
+}
+
+/**
+ * Clears the osmplayer CSS directory.
+ */
+function osmplayer_clear_css() {
+  $css_dir = osmplayer_get_css_dir();
+  if (is_dir($css_dir)) {
+    if ($contents = opendir($css_dir)) {
+      while (($node = readdir($contents)) !== false) {
+        if ($node != "." && $node != "..") {
+          $node = $css_dir . '/' . $node;
+          if (is_file($node)) {
+            unlink($node);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Gets the CSS directory.
+ * @return String - The css folder.
+ */
+function osmplayer_get_css_dir() {
+  // Now make sure that the osmplayer CSS directory exists.
+  $css_dir = getcwd() . '/' . variable_get('file_public_path', conf_path() . '/files') . '/' . 'css';
+  if (!is_dir($css_dir)) {
+    mkdir($css_dir, 0775);
+  }
+  $css_dir .= '/' . 'osmplayer';
+  if (!is_dir($css_dir)) {
+    mkdir($css_dir, 0775);
+  }
+
+  // Return the CSS directory.
+  return $css_dir;
+}
+
+/**
+ * Implementation of hook_mediafront_preset_save
+ */
+function osmplayer_mediafront_preset_save($preset) {
+  // We need to delete the temporary CSS files.
+  $settings = isset($preset['settings']) ? $preset['settings'] : array();
+  $settings['preset'] = $preset['name'];
+
+  // Get the media player.
+  $player = osmplayer_get_player_object($settings);
+
+  if ($player) {
+    // Now reset the CSS files.
+    $player->template->resetCSS();
+  }
+}
+
+/**
+ * Implements hook_get_player_settings
+ *
+ * These are the settings that the module implements...
+ */
+function osmplayer_get_player_settings() {
+  return OSMPlayer::getPlayerSettings();
+}
+
+/**
+ *  Implements hook_get_player_params.
+ *
+ *  These are the parameters that the player requires...
+ */
+function osmplayer_get_player_params() {
+  $hasServices = module_exists('services') && module_exists('xmlrpc_server');
+  $params = OSMPlayer::getPlayerParams();
+  $params['protocol'] = $hasServices ? "auto" : "json";
+  return $params;
+}
+
+/**
+ * Implements hook_player_settings_form
+ */
+function osmplayer_player_settings_form($preset) {
+  $form['presentation'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Presentation Settings'),
+    '#weight' => -10,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['presentation']['theme'] = array(
+    '#type' => 'select',
+    '#title' => t('Theme'),
+    '#description' => t('Select the theme you would like to use for this player.  The theme provides the look and feel for the media player.  Select <strong>&lt;none&gt;</strong> if you would not like to use a theme.<br/>You can download new themes for the OSM Player using the jQuery UI <a target="_blank" href="http://jqueryui.com/themeroller">JQuery UI ThemeRoller</a> interface.  Once you have downloaded a new theme, simply place the contents of that download in the <strong>modules/mediafront/players/osmplayer/player/jquery-ui</strong> folder.  Once you refresh the browser, you should see your new theme show up in this list.<br/><br/><strong>IMPORTANT NOTE:  You cannot have more than one theme present on a page at any given time.  This will cause the themes to override one other causing issues.</strong>'),
+    '#options' => array_merge(array('none' => t('<none>')), osmplayer_get_themes()),
+    '#default_value' => $preset['settings']['theme']
+  );
+  $form['presentation']['template'] = array(
+    '#type' => 'select',
+    '#title' => t('Template'),
+    '#description' => t('Select the template you would like to use for this player.  The template provides specific functionality as well as the layout for the media player.  Each template can be found in the <strong>modules/mediafront/players/osmplayer/player/templates</strong> folder.'),
+    '#options' => osmplayer_get_templates(),
+    '#default_value' => $preset['settings']['template']
+  );
+  $form['presentation']['skin'] = array(
+    '#type' => 'select',
+    '#title' => t('Flash Player Skin'),
+    '#description' => t('Select the Flash Player Skin you would like to use for this player.  The Open Standard Media Player employs a light weight Flash Player to show Flash media within the center black media region.  When this player goes into browser full screen, it will then show the Flash Player Skin for the ControlBar and the Play overlay.  This can be modified by creating custom skins within the <strong>modules/mediafront/players/osmplayer/player/flash/skins</strong> folder.  These skins are provided in this list below for selection.'),
+    '#options' => osmplayer_get_skins(),
+    '#default_value' => $preset['settings']['skin']
+  );
+  $form['presentation']['width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Player Width'),
+    '#description' => t('Enter the width of the player.'),
+    '#default_value' => $preset['settings']['width']
+  );
+  $form['presentation']['fluidWidth'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Fluid Width'),
+    '#description' => t('Check this field if you would like the width to be fluid. <strong>Note: Checking with will ignore the width setting above.</strong>'),
+    '#default_value' => $preset['settings']['fluidWidth']
+  );
+  $form['presentation']['height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Player Height'),
+    '#description' => t('Enter the height of the player.'),
+    '#default_value' => $preset['settings']['height']
+  );
+  $form['presentation']['fluidHeight'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Fluid Height'),
+    '#description' => t('Check this field if you would like the height to be fluid. <strong>Note: Checking with will ignore the height setting above.</strong>'),
+    '#default_value' => $preset['settings']['fluidHeight']
+  );
+  $form['presentation']['fullscreen'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Initialize FullScreen'),
+    '#description' => t('Check this field if you would like the media player to initialize in full screen mode.  This is good for modal windows.'),
+    '#default_value' => $preset['settings']['fullscreen']
+  );
+  $form['presentation']['zIndex'] = array(
+    '#type' => 'textfield',
+    '#title' => t('z-Index'),
+    '#description' => t('Enter the zIndex for the media player on the page.'),
+    '#default_value' => $preset['settings']['zIndex']
+  );
+  $form['presentation']['embedWidth'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Player Embedded Width'),
+    '#description' => t('Enter the width of the player when it is embedded into another site.'),
+    '#default_value' => $preset['settings']['embedWidth']
+  );
+  $form['presentation']['embedHeight'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Player Embedded Height'),
+    '#description' => t('Enter the height of the player when it is embedded into another site.'),
+    '#default_value' => $preset['settings']['embedHeight']
+  );
+  $form['presentation']['showTitleBar'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show Title Bar'),
+    '#description' => t('Specify if you would like to see the title bar of this player'),
+    '#default_value' => $preset['settings']['showTitleBar']
+  );
+  $form['presentation']['showWhenEmpty'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show player when empty'),
+    '#description' => t('Check if you would like to show the player even if there is nothing to play'),
+    '#default_value' => $preset['settings']['showWhenEmpty']
+  );
+  $form['presentation']['wmode'] = array(
+    '#title' => t('Flash Window Mode'),
+    '#type' => 'select',
+    '#options' => array('none' => 'none', 'transparent' => 'transparent', 'window' => 'window'),
+    '#default_value' => $preset['settings']['wmode'],
+    '#description' => t('Selects which window mode you would like for the OSM Flash player to operate under (denoted by the <b>wmode</b> parameter in the object code)
+         <ul>
+            <li><b>none</b> - <em>No window mode</em></li>
+            <li><b>wmode=transparent</b> - <em>Allows for other elements to drop in front of the video (like a drop-down list), without the video showing over those elements.</em></li>
+            <li><b>wmode=window</b> - <em>Allows for the video to have full-screen support.</em></li>
+         </ul>')
+  );
+  $form['presentation']['forceOverflow'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Force Overflow'),
+    '#description' => t('In order for the Open Standard Media Player to go into full browser mode, all parent HTML elements that contain the media player must not have any <strong>overflow</strong> CSS values set.  Checking this checkbox will explicitly set all the parent elements of the media player to have an <strong>overflow:visible</strong>.  <strong>Warning:  This setting may break your template, so use with caution.</strong>.'),
+    '#default_value' => $preset['settings']['forceOverflow']
+  );
+
+  $form['media_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Media Settings'),
+    '#weight' => -9,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['media_settings']['quality'] = array(
+    '#type' => 'select',
+    '#title' => t('Playback Quality'),
+    '#description' => t('Enter the quality for the media playback. <strong>This currently only works for YouTube content.</strong>'),
+    '#options' => array(
+      'default' => t('Default: Service selects resolution'),
+      'small' => t('Small: Resolution less than 320x240'),
+      'medium' => t('Medium: Resolution no more than 640x360'),
+      'large' => t('Large: Resolution no more than 1024x576'),
+      'hd720' => t('HD720: Resolution no more than 1280x720'),
+      'hd1080' => t('HD1080: Resolution no more than 1920x1080'),
+      'highres' => t('High Resolution: Resolution greater than HD1080.')
+    ),
+    '#default_value' => $preset['settings']['quality']
+  );
+  $form['media_settings']['volume'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default Volume'),
+    '#description' => t('Enter the initial volume for the player.'),
+    '#default_value' => $preset['settings']['volume']
+  );
+  $form['media_settings']['repeat'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Auto Repeat'),
+    '#description' => t('If checked, the media will play repeatidly.'),
+    '#default_value' => $preset['settings']['repeat']
+  );
+  $form['media_settings']['autostart'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Auto Start'),
+    '#description' => t('If checked, the media will automatically load and play once the page loads.'),
+    '#default_value' => $preset['settings']['autostart']
+  );
+  $form['media_settings']['autoLoad'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Auto Load'),
+    '#description' => t('If checked, the media will automatically start loading once the page loads.'),
+    '#default_value' => $preset['settings']['autoLoad']
+  );
+  $form['media_settings']['streamer'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Media Stream'),
+    '#description' => t('Enter the media stream location.'),
+    '#default_value' => $preset['settings']['streamer']
+  );
+  $form['media_settings']['incrementTime'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Node Increment Delay'),
+    '#description' => t('The amount of time ( in seconds ) to play the media track before incrementing the node counter.  Enter 0 to disable or -1 to increment only on media completion.'),
+    '#default_value' => $preset['settings']['incrementTime']
+  );
+  $form['media_settings']['timeout'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Image Only Timeout'),
+    '#description' => t('If there is only an image present in the node, this is the amount of time ( in seconds ) to wait before moving on to the next track.'),
+    '#default_value' => $preset['settings']['timeout']
+  );
+
+  /*   * *********************** PLAYLIST SETTINGS ************************************ */
+  $form['playlist_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Playlist Settings'),
+    '#weight' => -8,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['playlist_settings']['scrollSettings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Scroll Settings'),
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['playlist_settings']['scrollSettings']['showScrollbar'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show Scroll Bar'),
+    '#description' => t('Check to show the scroll bar or not.'),
+    '#default_value' => $preset['settings']['showScrollbar']
+  );
+  $form['playlist_settings']['scrollSettings']['scrollMode'] = array(
+    '#type' => 'select',
+    '#title' => t('Scroll Mode'),
+    '#options' => array('auto' => 'Auto Scroll', 'mouse' => 'Mouse Scroll', 'hover' => 'Hover Scroll', 'span' => 'Span Scroll', 'none' => 'No Scroll'),
+    '#description' => t('Specify how you would like the playlist to scroll.
+      <ul>
+        <li><strong>Auto Scroll</strong> - <em>Make the playlist scroll follow the mouse movements</em></li>
+        <li><strong>Mouse Scroll</strong> - <em>Use the mouse scroll wheel to move the playlist.</em></li>
+        <li><strong>Hover Scroll</strong> - <em>will only scroll once the user hover\'s over a certain button region in the scroll region.</em></li>
+        <li><strong>Span Scroll</strong> - <em>Will scroll the playlist using the exact mouse position.</em></li>
+        <li><strong>ScrollBar Only</strong> - <em>Will only allow the playlist to be scrolled using the scroll bar.</em></li>
+      </ul>'),
+    '#default_value' => $preset['settings']['scrollMode']
+  );
+  $form['playlist_settings']['scrollSettings']['scrollSpeed'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Scroll Speed'),
+    '#description' => t('The speed which the playlist scrolls.'),
+    '#default_value' => $preset['settings']['scrollSpeed']
+  );
+  $form['playlist_settings']['displaySettings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Display Settings'),
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['playlist_settings']['displaySettings']['disablePlaylist'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable Playlist'),
+    '#description' => t('Will completely remove the playlist funcitonality.'),
+    '#default_value' => $preset['settings']['disablePlaylist']
+  );
+  $form['playlist_settings']['displaySettings']['showPlaylist'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show Playlist'),
+    '#description' => t('Select if you would like to see the playlist by default. ( They can then see the playlist my pressing the maximize button )'),
+    '#default_value' => $preset['settings']['showPlaylist']
+  );
+  $form['playlist_settings']['displaySettings']['playlistOnly'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Playlist Only'),
+    '#description' => t('Select if you would like to ONLY see the playlist.'),
+    '#default_value' => $preset['settings']['playlistOnly']
+  );
+  $form['playlist_settings']['displaySettings']['vertical'] = array(
+    '#type' => 'select',
+    '#title' => t('Playlist Orientation'),
+    '#options' => array(false => 'Horizontal', true => 'Vertical'),
+    '#description' => t('Selecting this will orient the playist either vertical or horizontal.  Note - This will only work if your template supports it.'),
+    '#default_value' => $preset['settings']['vertical']
+  );
+  $form['playlist_settings']['playlist'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default Playlist'),
+    '#description' => t('Enter the name or the URL of the playlist you would like to load by default.  This can either be an external XML file, or the name of the view that represents your playlist.  This, however, will be overridden if you explicitly provide the playlist when adding this preset to a page.'),
+    '#default_value' => $preset['settings']['playlist']
+  );
+  $form['playlist_settings']['pageLimit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Page Limit'),
+    '#description' => t('Specify how many nodes you would like to show in each page of the playlist.'),
+    '#default_value' => $preset['settings']['pageLimit']
+  );
+  $form['playlist_settings']['autoNext'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Auto Next'),
+    '#description' => t('Specify if you would the player to automatically move to the next node after the previous one finishes playing.'),
+    '#default_value' => $preset['settings']['autoNext']
+  );
+  $form['playlist_settings']['pageLink'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Page Link'),
+    '#description' => t('Specify if you would like each teaser to be a link to the actual page where the content is loaded.'),
+    '#default_value' => $preset['settings']['pageLink']
+  );
+  $form['playlist_settings']['shuffle'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Shuffle'),
+    '#description' => t('If checked, the playlist will play in a random order.'),
+    '#default_value' => $preset['settings']['shuffle']
+  );
+  $form['playlist_settings']['loop'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Loop'),
+    '#description' => t('If checked, the media playlist will play over once it has been completed.  This also applies if there is only a single media being played.'),
+    '#default_value' => $preset['settings']['loop']
+  );
+
+  /*   * ************************** NODE SETTINGS ********************************** */
+  $form['node_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Node Settings'),
+    '#weight' => -7,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['node_settings']['node'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Node Id'),
+    '#description' => t('Enter the node Id if you would like to load a single node.'),
+    '#default_value' => $preset['settings']['node']
+  );
+
+
+  $form['control_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Controller Settings'),
+    '#weight' => -6,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['control_settings']['showController'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show Controller'),
+    '#description' => t('Unchecking this will hide the control bar.'),
+    '#default_value' => $preset['settings']['showController']
+  );
+  $form['control_settings']['controllerOnly'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Controller Only'),
+    '#description' => t('Select if you would like to ONLY see the control bar.'),
+    '#default_value' => $preset['settings']['controllerOnly']
+  );
+
+  $form['logo_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Logo Settings'),
+    '#weight' => -4,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+  $form['logo_settings']['logo'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Logo URL'),
+    '#description' => t('Enter the relative location of your logo with respect to the Drupal root location.'),
+    '#default_value' => $preset['settings']['logo']
+  );
+  $form['logo_settings']['link'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Link URL'),
+    '#description' => t('Enter the website that the logo points to.'),
+    '#default_value' => $preset['settings']['link']
+  );
+  $form['logo_settings']['logopos'] = array(
+    '#type' => 'select',
+    '#title' => t('Logo Position'),
+    '#description' => t('Enter the location of your logo.'),
+    '#options' => array(
+      'ne' => t('Upper Right'),
+      'se' => t('Lower Right'),
+      'sw' => t('Lower Left'),
+      'nw' => t('Upper Left')
+    ),
+    '#default_value' => $preset['settings']['logopos']
+  );
+  $form['logo_settings']['logoWidth'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Logo Maximum Width'),
+    '#description' => t('Enter the maximum width for this logo.'),
+    '#default_value' => $preset['settings']['logoWidth']
+  );
+  $form['logo_settings']['logoHeight'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Logo Maximum Height'),
+    '#description' => t('Enter the maximum height for this logo.'),
+    '#default_value' => $preset['settings']['logoHeight']
+  );
+  $form['logo_settings']['logox'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Logo X-Offset'),
+    '#description' => t('Enter the x-offset for this logo with respect to it\'s nearest side'),
+    '#default_value' => $preset['settings']['logox']
+  );
+  $form['logo_settings']['logoy'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Logo Y-Offset'),
+    '#description' => t('Enter the y-offset for this logo with respect to it\'s nearest side'),
+    '#default_value' => $preset['settings']['logoy']
+  );
+
+  $form['misc'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Other Settings'),
+    '#weight' => -3,
+    '#collapsible' => true,
+    '#collapsed' => true
+  );
+
+  $form['misc']['debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable Player Debugging'),
+    '#description' => t('Select if you would like to see the debug statements from the Media Player.'),
+    '#default_value' => $preset['settings']['debug']
+  );
+  return $form;
+}
+
+function osmplayer_get_themes() {
+  return mediafront_get_directories('osmplayer', 'player/jquery-ui/css');
+}
+
+function osmplayer_get_templates() {
+  return mediafront_get_directories('osmplayer','player/templates');
+}
+
+function osmplayer_get_skins() {
+  return mediafront_get_directories('osmplayer','player/minplayer/skins');
+}
+
+/**
+ * Helper function to add all the osmplayer javascript files.
+ */
+function osmplayer_add_js($player) {
+  // Add the javascript files.
+  $js_files = $player->getJSFiles();
+  $playerPath = osmplayer_get_path() . '/';
+  foreach ($js_files as $js_file) {
+    drupal_add_js($playerPath . $js_file);
+  }
+
+  // Add the JavaScript for this player.
+  drupal_add_js($player->getPlayerJS(), 'inline');
+}
+
+/**
+ * Helper function to add all the osmplayer CSS files.
+ */
+function osmplayer_add_css($player, $preset) {
+  static $cssadded;
+  if (!isset($cssadded[$preset])) {
+    $cssadded[$preset] = TRUE;
+
+    // Get the CSS files.
+    $css_files = $player->template->getCSSFiles();
+
+    if ($player->template->settings['generateCSS']) {
+      // If themeroller is enabled, then we will want to make sure
+      // to set the CSS directory of our cached directory instead of the
+      // default REAL path.
+      $files_dir = variable_get('file_public_path', conf_path() . '/files');
+      $css_dir = $files_dir . '/css/osmplayer';
+      $player->template->setCSSDir(getcwd() . '/' . $css_dir);
+    }
+    else {
+      // Otherwise, just get the path to the player folder.
+      $css_dir = osmplayer_get_path();
+      if(isset($css_files['theme'])) {
+        drupal_add_css(($css_dir . '/' . $css_files['theme']));
+      }
+    }
+
+    if (isset($css_files['template'])) {
+      drupal_add_css(($css_dir . '/' . $css_files['template']));
+    }
+    if (isset($css_files['template_ie']) && $css_files['template_ie']) {
+      drupal_add_html_head('<!--[if IE]><link rel="stylesheet" type="text/css" href="' . ($css_dir . '/' . $css_files['template_ie']) . '" /><![endif]-->');
+    }
+  }
+}
+
+/**
+ * The template preprocess function for the osm media player.
+ *
+ * @param $variables - The
+ * @return unknown_type
+ */
+function template_preprocess_osmplayer(&$variables) {
+  global $base_url, $user;
+
+  // Let the mediafront populate all the variables for us.
+  mediafront_template_preprocess($variables);
+
+  // Get the params.
+  $params = &$variables['params'];
+
+  // Get the templates.
+  $templates = &$variables['templates'];
+
+  // Get the media player.
+  $player = osmplayer_get_player_object($params);
+
+  if ($player) {
+    $params['id'] = $player->getId();
+
+    // Add the javascript for this player.
+    osmplayer_add_js($player);
+
+    // Add the CSS files for this player.
+    osmplayer_add_css($player, $params['preset']);
+
+    // Make sure they always have a template, theme, and version...
+    $template = $params['template'] = $player->getTemplate();
+    $params['theme'] = $player->getTheme();
+    $params['version'] = $player->template->getVersion();
+
+    // Get the player prefix.
+    $params['prefix'] = $player->getPrefix();
+
+    // Make sure we call the template_preprocess.
+    template_preprocess($variables, 'osmplayer_' . $params['template']);
+
+    // Now set up our templates within a template.
+    $hooks = theme_get_registry(FALSE);
+    $subtemplates = array(
+      'controlBar' => 'controlbar',
+      'titlebar' => 'titlebar',
+      'menu' => 'menu',
+      'node' => 'node',
+      'teaser' => 'teaser',
+      'scrollBar' => 'scrollbar',
+      'pager' => 'pager',
+      'playlist' => 'playlist'
+    );
+
+    // Iterate through all the possible subtemplates.
+    foreach ($subtemplates as $name => $subtemplate) {
+      $hook = 'osmplayer_' . $template . '_' . $subtemplate;
+      $templates[$name] = isset($hooks[$hook]) ? theme($hook, array('params' => $params, 'templates' => $templates)) : '';
+    }
+
+    // Determine the width and height.
+    $width = ($params['playlistOnly'] && $params['vertical']) ? '' : ('width:' . $params['width'] . 'px;');
+    $variables['width'] = $params['fluidWidth'] ? 'width:100%;' : $width;
+    $height = (($params['playlistOnly'] && !$params['vertical']) || $params['controllerOnly']) ? '' : ('height:' . $params['height'] . 'px;');
+    $variables['height'] = $params['fluidHeight'] ? 'height:100%;' : $height;
+  }
+}

@@ -1,0 +1,11 @@
+#site-status {
+  background-color: #d32101;
+  color: #fff;
+  padding: 0.5em;
+  text-align: center;
+  position: relative;
+  -moz-box-shadow: 0 2px 2px 1px rgba(68,68,68,0.5);
+  -webkit-box-shadow: 0 2px 2px 1px rgba(68,68,68,0.5);
+  box-shadow: 0 2px 2px 1px rgba(68,68,68,0.5);
+  z-index: 99;
+}

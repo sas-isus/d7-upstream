@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * Tests attaching of a core block to a menu.
+ */
+class AttachBlockTestCase extends DrupalWebTestCase {
+  protected $privileged_user;
+
+  public static function getInfo(){
+    return array(
+      'name' => 'Attach block test case',
+      'description' => 'Makes sure that a block to a menu item',
+      'group' => 'Menu Attach Block',
+    );
+  }
+
+  public function setUp() {
+    // Enable menu_attach_block module.
+    parent::setUp(array('menu', 'menu_attach_block'));
+    // Set up a user with privileges to add blocks.
+    $this->privileged_user = $this->drupalCreateUser(array('administer menu'));
+  }
+
+  function testAttachBlock() {
+    $this->drupalLogin($this->privileged_user);
+    // Save a new menu item with an attached block.
+    $edit = array();
+    $edit['link_title'] = $this->randomName();
+    $edit['link_path'] = 'admin/structure/menu/manage/main-menu/add';
+    $edit["menu_attach_block[name]"] = 'system|powered-by';
+    $this->drupalPost($edit['link_path'], $edit, t('Save'));
+
+    // Check that the admin interface shows the block as attached.
+    $this->assertText(check_plain("Powered by Drupal"), t('Block attached to menu in admin interface'), 'Admin');
+
+    // Check the the block got attached to the menu.
+    $this->assertPattern(
+    '|<li class="[\w-\d]+ attached-block|',
+    t('Class added to Menu container li'),
+    'Frontend'
+    );
+
+    // Check that the block has been attached to the correct link.
+    $this->assertPattern(
+            '|<a href="\/[\?q=]?' . $edit['link_path'] . '" title="" class="attached-block">' . $edit['link_title'] . '</a>|',
+            t('Block attached to correct link'),
+            'Frontend'
+        );
+
+    // Test that links with the dummy <block> path are displayed correctly.
+    $edit = array();
+    $edit['link_title'] = $this->randomName();
+    $edit['link_path'] = '<block>';
+    $edit["menu_attach_block[name]"] = 'system|powered-by';
+    $this->drupalPost('admin/structure/menu/manage/main-menu/add', $edit, t('Save'));
+    // Check that the menu is displayed.
+    $this->assertText(
+            $edit['link_title'],
+            'Link to <block> (anchor without href) is displayed correctly.'
+        );
+  }
+}

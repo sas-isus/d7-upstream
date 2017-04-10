@@ -1,0 +1,17 @@
+name = Event Calendar
+description = A module to create and manage events.
+package = Event Calendar
+core = 7.x
+dependencies[] = calendar
+dependencies[] = date
+dependencies[] = date_popup
+dependencies[] = taxonomy
+configure = admin/config/date/event-settings
+
+
+; Information added by drupal.org packaging script on 2013-09-13
+version = "7.x-1.4"
+core = "7.x"
+project = "event_calendar"
+datestamp = "1379068602"
+

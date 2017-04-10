@@ -1,0 +1,16 @@
+<?php
+/**
+ * @file
+ * Install file for Site Status Message.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function site_status_message_uninstall() {
+  // Remove Site Status Message variables.
+  variable_del('site_status_message_message');
+  variable_del('site_status_message_link');
+  variable_del('site_status_message_readmore');
+  variable_del('site_status_message_admin');
+}

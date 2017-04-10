@@ -1,0 +1,6 @@
+<?php
+
+function iframe_https_hack_init() {
+    // load the script - script just strips protocol string from iframe src values
+    drupal_add_js(drupal_get_path('module', 'iframe_https_hack') . '/iframe_https_hack.js');
+}

@@ -1,0 +1,16 @@
+name = Easy Social
+description = Simple module that adds share buttons to nodes. The most common ones are included by defauly and any module can define others.
+package = Other
+core = 7.x
+configure = admin/config/content/easysocial
+tags[] = social
+tags[] = share
+dependencies[] = variable
+; Views handler
+files[] = views/easy_social_handler_field.inc
+; Information added by Drupal.org packaging script on 2014-02-12
+version = "7.x-2.11"
+core = "7.x"
+project = "easy_social"
+datestamp = "1392206630"
+

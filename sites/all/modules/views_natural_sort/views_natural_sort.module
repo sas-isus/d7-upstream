@@ -1,0 +1,237 @@
+<?php
+/**
+ * @file
+ * Provides a views filter that sorts titles by a more natural manner by
+ * ignoring articles like "The" and "A."
+ *
+ * Normal sort:
+ * A Chorus Line
+ * All American
+ * Fiddler on the Roof
+ * Oklahoma!
+ * The King And I
+ *
+ * Natural sort:
+ * All American
+ * A Chorus Line
+ * Fiddler on the Roof
+ * The King And I
+ * Oklahoma!
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function views_natural_sort_menu() {
+  $items = array();
+
+  $items['admin/config/views_natural_sort'] = array(
+    'title' => 'Views Natural Sort',
+    'description' => 'Configuration and settings for natural sorting.',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+  $items['admin/config/views_natural_sort/rebuild_index'] = array(
+    'title' => 'Rebuild Search Index',
+    'description' => 'Rebuild Views Natural Sort\'s search index',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('views_natural_sort_rebuild_index_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer views'),
+    'file' => 'views_natural_sort.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/views_natural_sort/settings'] = array(
+    'title' => 'Configure Word Removal Lists',
+    'description' => 'Set what words should be ignored when performing a natural sort.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('views_natural_sort_settings_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer views'),
+    'file' => 'views_natural_sort.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function views_natural_sort_views_api() {
+  return array(
+    'api' => 2.0,
+  );
+}
+
+/**
+ * Implements hook_node_insert().
+ *
+ * This keeps our natural sort index up to date.
+ */
+function views_natural_sort_node_insert($node) {
+  _views_natural_sort_store_node($node);
+}
+
+/**
+ * Implementation of hook_node_update().
+ *
+ * This keeps our natural sort index up to date.
+ */
+function views_natural_sort_node_update($node) {
+  _views_natural_sort_store_node($node);
+}
+
+/**
+ * Implementation of hook_node_delete().
+ *
+ * This keep sour natural sort index clean.
+ */
+function views_natural_sort_node_delete($node) {
+  _views_natural_sort_remove_node($node);
+}
+
+/**
+ * Helper function for writing node data to our sort index.
+ *
+ * @param $node
+ * A drupal node object containing at least a nid and title.
+ *
+ * @return int
+ * MergeQuery::STATUS_UPDATE or MergeQuery::STATUS_INSERT
+ */
+function _views_natural_sort_store_node($node) {
+  return db_merge('views_natural_sort')
+    ->key(array(
+      'nid' => $node->nid,
+      'field' => 'title'
+    ))
+    ->fields(array(
+      'nid' => $node->nid,
+      'field' => 'title',
+      'content' => views_natural_sort_encode($node->title)
+    ))
+    ->execute();
+}
+
+/**
+ * Helper function for removing node data from our sort index.
+ *
+ * @param $node
+ * A drupal node object containing at least a nid.
+ *
+ * @return int
+ * The number of rows deleted.
+ */
+function _views_natural_sort_remove_node($node) {
+  return db_delete('views_natural_sort')
+    ->condition('nid', $node->nid)
+    ->execute();
+}
+
+/**
+ * Encodes a string into an ascii-sortable such:
+ *  - Leading articles in common languages are ingored: The A An El La Le Il
+ *  - Unimportant punctuation is ignored: # ' " ( )
+ *  - Unimportant words are ignored: and of or
+ *  - Embeded numbers will sort in numerical order. The following possiblities
+ *    are supported
+ *    - A leading dash indicates a negative number, unless it is preceded by a
+ *      non-whitespace character, which case it is considered just a dash.
+ *    - Leading zeros are properly ignored so as to not influence sort order
+ *    - Decimal numbers are supported using a period as the decimal character
+ *    - Thousands separates are ignored, using the comma as the thous. character
+ *    - Numbers may be up to 99 digits before the decimal, up to the precision
+ *      of the processor.
+ *
+ * @param $string string
+ *   The string to be encoded
+ *
+ * @return string
+ *   The encoded string
+ */
+function views_natural_sort_encode($string) {
+
+  $words = variable_get('views_natural_sort_words_remove', array());
+  $beginning_words = variable_get('views_natural_sort_beginning_words_remove', array());
+
+  $symbols = variable_get('views_natural_sort_symbols_remove', '');
+
+  // Get the words ready for being put in a regex.
+  array_walk($beginning_words, 'preg_quote');
+  array_walk($words, 'preg_quote');
+
+  $regex = array();
+  $replace = array();
+
+  // Remove words from the beginning only!
+  if (!empty($beginning_words)) {
+    $regex[] = '/^(' . implode('|', $beginning_words) . ')\s+/i';
+    $replace[]='';
+  }
+  // Remove words reguardless where they are as long as they are a word.
+  if (!empty($words)) {
+    $regex[] = '/\s(' . implode('|', $words) . ')\s+/i';
+    $replace[] = ' ';
+    $regex[] = '/^(' . implode('|', $words) . ')\s+/i';
+    $replace[] = '';
+  }
+
+  // Remove symbols.
+  if (strlen($symbols) != 0) {
+    $regex[] = '/[' . preg_quote($symbols) . ']/';
+    $replace[] = '';
+  }
+
+  if (!empty($regex) && !empty($replace)) {
+    $string = preg_replace($regex, $replace, $string);
+  }
+
+  // Find an optional leading dash (either preceded by whitespace or the first character) followed
+  // by either:
+  //   - an optional series of digits (with optional imbedded commas), then a period, then an optional series of digits OR
+  //   - a series of digits (with optional imbedded commas)
+  $string = preg_replace_callback(
+    '/(\s-|^-)?(?:(\d[\d,]*)?\.(\d+)|(\d[\d,]*))/',
+    '_views_natural_sort_number_encode_match_callback',
+    $string
+  );
+  return $string;
+}
+
+/**
+ * Encodes a string representing numbers into a special format that can be sorted alphanumerically.
+ *
+ * @param array $match
+ *   array of matches passed from preg_replace_callback
+ *   $match[0] is the entire matching string
+ *   $match[1] if present, is the optional dash, preceded by optional whitespace
+ *   $match[2] if present, is whole number portion of the decimal number
+ *   $match[3] if present, is the fractional portion of the decimal number
+ *   $match[4] if present, is the integer (when no fraction is matched)
+ *
+ * @return string
+ *   String representing a numerical value that will sort numerically in an
+ *   alphanumeric search.
+ */
+function _views_natural_sort_number_encode_match_callback($match) {
+
+  // Remove commas and leading zeros from whole number
+  $whole = (string)(int)str_replace(',', '', (isset($match[4]) && strlen($match[4]) > 0) ? $match[4] : $match[2]);
+  // Remove traililng 0's from fraction, then add the decimal and one trailing 0
+  $fraction = trim('.' . $match[3], '0') . '0';
+  $encode = sprintf('%02u', strlen($whole)) . $whole . $fraction;
+  if (strlen($match[1])) {
+    // Negative number. Make 10's complement. Put back any leading white space and the dash
+    // Requires intermediate to avoid double-replacing the same digit. str_replace seems to
+    // work by copying the source to the result, then successively replacing within it,
+    // rather than replacing from the source to the result.
+    $digits       = array('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+    $intermediate = array('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j');
+    $rev_digits   = array('9', '8', '7', '6', '5', '4', '3', '2', '1', '0');
+    $encode = $match[1] . str_replace($intermediate, $rev_digits, str_replace($digits, $intermediate, $encode));
+  }
+  return $encode;
+}
