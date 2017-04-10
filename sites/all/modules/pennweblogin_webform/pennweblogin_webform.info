@@ -1,7 +1,0 @@
-name = PennWebLogin Webform
-description = "Webform module theme tweaks for use with the PennWebLogin authentication module"
-package = Pennweblogin
-version = "7.x-1.0"
-core = 7.x
-dependencies[] = pennweblogin
-dependencies[] = webform

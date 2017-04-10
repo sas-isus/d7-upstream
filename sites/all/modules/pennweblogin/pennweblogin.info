@@ -1,7 +1,0 @@
-name = PennWebLogin
-description = "PennWebLogin authentication module"
-package = Pennweblogin
-version = "7.x-1.0"
-core = 7.x
-files[] = pennweblogin.admin.inc
-files[] = pennweblogin.install
