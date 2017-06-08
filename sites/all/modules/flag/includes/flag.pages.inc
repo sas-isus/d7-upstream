@@ -11,7 +11,11 @@
  * Used both for the regular callback as well as the JS version.
  *
  * @param $action
- *   Either 'flag' or 'unflag'.
+ *   The action about to be performed. One of 'flag' or 'unflag'.
+ * @param $flag
+ *   The flag object.
+ * @param $entity_id
+ *   The ID of the entity to be acted upon. The type is implicit in the flag.
  */
 function flag_page($action, $flag, $entity_id) {
   global $user;
@@ -71,11 +75,11 @@ function flag_page($action, $flag, $entity_id) {
 /**
  * Form for confirming the (un)flagging of an entity.
  *
- * @param $action
+ * @param string $action
  *   Either 'flag' or 'unflag'.
- * @param $flag
+ * @param flag_flag $flag
  *   A loaded flag object.
- * @param $entity_id
+ * @param int $entity_id
  *   The id of the entity to operate on. The type is implicit in the flag.
  *
  * @see flag_confirm_submit()
@@ -93,7 +97,7 @@ function flag_confirm($form, &$form_state, $action, $flag, $entity_id) {
 
   $question = $flag->get_label($action . '_confirmation', $entity_id);
   $path = isset($_GET['destination']) ? $_GET['destination'] : '<front>';
-  $yes = $flag->get_label($action . '_short', $entity_id);
+  $yes = strip_tags($flag->get_label($action . '_short', $entity_id));
 
   if ($action == 'flag') {
     // If the action 'flag', we're potentially about to create a new
@@ -101,9 +105,39 @@ function flag_confirm($form, &$form_state, $action, $flag, $entity_id) {
     $flagging = $flag->new_flagging($entity_id);
     field_attach_form('flagging', $flagging, $form, $form_state);
     $form['#flagging'] = $flagging;
+
+    // Take the same approach as Core entity forms: shove all the entity
+    // properties into the form as values so that entity_form_field_validate()
+    // can build a pseudoentity from $form_values in the validate handler.
+    foreach (array(
+      'flag_name',
+      'entity_type',
+      'entity_id',
+      'uid',
+    ) as $key) {
+      $form[$key] = array(
+        '#type' => 'value',
+        '#value' => isset($flagging->$key) ? $flagging->$key : NULL,
+      );
+    }
   }
 
   return confirm_form($form, $question, $path, '', $yes);
+}
+
+/**
+ * Validate handler for the flag confirm form.
+ *
+ * Validate any Field API fields on the Flagging.
+ *
+ * @see flag_confirm()
+ */
+function flag_confirm_validate($form, &$form_state) {
+  // Only validate the entity fields when we're saving an entity.
+  $action = $form_state['values']['action'];
+  if ($action == 'flag') {
+    entity_form_field_validate('flagging', $form, $form_state);
+  }
 }
 
 /**
@@ -160,6 +194,6 @@ function flag_build_javascript_info($flag, $entity_id) {
     'flagName' => $flag->name,
     'flagStatus' => $flag->is_flagged($entity_id) ? 'flagged' : 'unflagged',
   );
-  drupal_alter('flag_javascript_info', $info);
+  drupal_alter('flag_javascript_info', $info, $flag);
   return $info;
 }
