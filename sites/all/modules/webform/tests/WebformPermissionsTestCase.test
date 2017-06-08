@@ -4,12 +4,9 @@
  * @file
  * Webform module permission tests.
  */
-
-include_once(dirname(__FILE__) . '/webform.test');
-
 class WebformPermissionsTestCase extends WebformTestCase {
   /**
-   * Implements getInfo().
+   * {@inheritdoc}
    */
   public static function getInfo() {
     return array(
@@ -20,32 +17,18 @@ class WebformPermissionsTestCase extends WebformTestCase {
   }
 
   /**
-   * Implements setUp().
-   */
-  function setUp() {
-    parent::setUp();
-  }
-
-  /**
-   * Implements tearDown().
-   */
-  function tearDown() {
-    parent::tearDown();
-  }
-
-  /**
    * Create a webform node in which authenticated users have access to submit.
-  */
+   */
   function testWebformSubmitAccess() {
     $this->webformReset();
-    $node = $this->testWebformForm();
+    $node = $this->webformForm();
     $node->webform['roles'] = array(2);
     node_save($node);
 
     // Test that the authenticated user is able to access.
     $this->drupalLogin($this->webform_users['userAccess']);
     $this->drupalGet('node/' . $node->nid);
-    $this->assertText($node->body[LANGUAGE_NONE][0]['value'], t('Webform node created and accessible to authenticated users at !url', array('!url' => 'node/' . $node->nid)), t('Webform'));
+    $this->assertText($node->title, t('Webform node created and accessible to authenticated users at !url', array('!url' => 'node/' . $node->nid)), t('Webform'));
 
     // Confirm that the submission has been created.
     $this->drupalPost(NULL, array(), 'Submit');
@@ -59,9 +42,4 @@ class WebformPermissionsTestCase extends WebformTestCase {
     // Something in SimpleTest isn't handling the string correctly.
     $this->assertText('to view this form.', t('Anonymous user is not allowed to submit form.'), t('Webform'));
   }
-
-  /**
-   * Create webform
-   */
-
 }
