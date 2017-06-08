@@ -71,7 +71,7 @@ function flag_features_export_render($module, $data) {
 /**
  * Implements hook_features_revert().
  *
- * @param $module
+ * @param string $module
  *   The name of module for which to revert content.
  */
 function flag_features_revert($module = NULL) {
@@ -111,5 +111,14 @@ function flag_features_providing_module() {
       $modules[$key] = isset($value['module']) ? $value['module'] : $module;
     }
   }
+
+  // Any entity type without a flag providing module will be provided by the
+  // flag module.
+  foreach (entity_get_info() as $entity_type => $entity) {
+    if (!isset($modules[$entity_type]) && empty($entity['configuration']) && $entity_type !== 'taxonomy_vocabulary') {
+      $modules[$entity_type] = 'flag';
+    }
+  }
+
   return $modules;
 }
