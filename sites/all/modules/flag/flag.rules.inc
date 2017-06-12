@@ -81,7 +81,7 @@ class FlagRulesUIClass extends RulesDataUI implements RulesDataDirectInputFormIn
       '#required' => empty($info['optional']),
       '#multiple' => FALSE,
       '#default_value' => $settings[$name],
-      '#empty' => t('There is no suiting flag available.')
+      '#empty' => t('There is no suiting flag available.'),
     );
     return $form;
   }
@@ -168,6 +168,11 @@ function flag_rules_event_info() {
  */
 function flag_rules_action_info() {
   $param_defaults = array(
+    'flagging_user' => array(
+      'type' => 'user',
+      'label' => t('User on whose behalf to flag'),
+      'description' => t('For non-global flags, this is the user on whose behalf to flag the object. In addition, if checked below, the access permissions to the flag are checked against this user.'),
+    ),
     'permission_check' => array(
       'type' => 'boolean',
       'label' => t('Skip permission check'),
@@ -199,7 +204,8 @@ function flag_rules_action_info() {
           'label' => t('Trim newest flags'),
           'description' => t('Checking this will trim the newest flags.  This will prevent new flags once a limit is reached.'),
         ),
-      ) + $param_defaults,
+        'permission_check' => $param_defaults['permission_check'],
+      ),
       'group' => t('Flag'),
       'access callback' => 'flag_rules_integration_access',
     ),
@@ -215,6 +221,8 @@ function flag_rules_action_info() {
       'provides' => array(
         'overall_flag_count' => array(
           'label' => t('Overall flag count'),
+          'description' => t('During a flagging/unflagging event the count
+            will take into account the current flagging/unflagging procedure.'),
           'type' => 'integer',
         ),
       ),
@@ -239,6 +247,10 @@ function flag_rules_action_info() {
       'provides' => array(
         'entity_flag_count' => array(
           'label' => t('Entity flag count'),
+          'description' => t('During a flagging event, the count
+            will take into account the current flagging procedure. For
+            an unflagging event, the count will NOT yet be decreased for the
+            current unflagging procedure.'),
           'type' => 'integer',
         ),
       ),
@@ -261,17 +273,16 @@ function flag_rules_action_info() {
       'provides' => array(
         'user_flag_count' => array(
           'label' => t('User flag count'),
+          'description' => t('During a flagging event, the count
+            will take into account the current flagging procedure. For
+            an unflagging event, the count will NOT yet be decreased for the
+            current unflagging procedure.'),
           'type' => 'integer',
         ),
       ),
       'group' => t('Flag'),
       'access callback' => 'flag_rules_integration_access',
     ),
-  );
-  $param_defaults['flagging_user'] = array(
-    'type' => 'user',
-    'label' => t('User on whose behalf to flag'),
-    'description' => t('For non-global flags, this is the user on whose behalf to flag the object. In addition, if checked below, the access permissions to the flag are checked against this user.'),
   );
   foreach (flag_get_types() as $type) {
     $entity_info = entity_get_info($type);
@@ -364,9 +375,10 @@ function flag_rules_action_info() {
       'access callback' => 'flag_rules_integration_access',
     );
   }
-  // For backward compatibility sake. This was the original name of the 'fetch node by user'.
+  // For backward compatibility sake. This was the original name of the
+  // 'fetch node by user'.
   $items['flag_fetch_entity_by_user'] = $items['flag_fetch_node_by_user'];
-  $items['flag_fetch_entity_by_user']['label'] .= ' '. t('(Legacy)');
+  $items['flag_fetch_entity_by_user']['label'] .= ' ' . t('(Legacy)');
   return $items;
 }
 
@@ -413,19 +425,23 @@ function flag_rules_action_fetch_users($flag, $entity) {
 }
 
 /**
- * Base action implementation: Fetch entities who were flagged a user.
+ * Base action implementation: Fetch entities flagged by a user.
  */
 function flag_rules_action_fetch_entity_by_user($flag, $entity) {
-  $user = entity_metadata_wrapper('user', $entity);
-  $sid = $user->flag_sid->value();
   $query = db_select('flagging', 'fc')
     ->fields('fc', array('entity_id'))
     ->condition('entity_type', $flag->entity_type)
-    ->condition('uid', $user->uid->value())
     ->condition('fid', $flag->fid);
-  // Filter out any bad session ids and any users that aren't anonymous.
-  if (!empty($sid) && $sid != -1) {
-    $query->condition('sid', $sid);
+  // For global flags the user parameter is ignored, so we add the
+  // extra 'uid' condition when the flag is NOT global.
+  if (!$flag->global) {
+    $user = entity_metadata_wrapper('user', $entity);
+    $sid = $user->flag_sid->value();
+    $query = $query->condition('uid', $user->uid->value());
+    // Filter out any bad session ids and any users that aren't anonymous.
+    if (!empty($sid) && $sid != -1) {
+      $query->condition('sid', $sid);
+    }
   }
   $result = $query->execute();
   $flagged = $result->fetchCol();
@@ -434,6 +450,9 @@ function flag_rules_action_fetch_entity_by_user($flag, $entity) {
 
 /**
  * Base action implementation: Fetch overall count for a particular flag.
+ *
+ * The count that is returned during a flagging or an unflagging will take into
+ * account the current flag/unflag process.
  */
 function flag_rules_action_fetch_overall_flag_count($flag) {
   $count = flag_get_flag_counts($flag->name);
@@ -455,7 +474,12 @@ function flag_rules_get_flag_types() {
 }
 
 /**
- * Base action implementation: Fetch count of flags for a particular entity.
+ * Base action implementation: Fetch count of flags for a particular entity
+ * type.
+ *
+ * During a flagging, the current flagging will be included in the count.
+ * During an unflagging, the current flagging being removed will not yet have
+ * been removed from the count.
  */
 function flag_rules_action_fetch_entity_flag_count($flag, $entity_type) {
   $count = flag_get_entity_flag_counts($flag, $entity_type);
@@ -464,6 +488,10 @@ function flag_rules_action_fetch_entity_flag_count($flag, $entity_type) {
 
 /**
  * Base action implementation: Fetch user's flag count.
+ *
+ * During a flagging, the current flagging will be included in the count.
+ * During an unflagging, the current flagging will not yet have been removed
+ * from the count.
  */
 function flag_rules_action_fetch_user_flag_count($flag, $user) {
   $count = flag_get_user_flag_counts($flag, $user);
@@ -487,7 +515,7 @@ function flag_rules_condition_info() {
             'type' => 'flag',
             'label' => t('Flag'),
             'flag_type' => $type,
-            'description' => t('The flag to check for.')
+            'description' => t('The flag to check for.'),
           ),
           $type => array(
             'type' => $type,
@@ -496,7 +524,12 @@ function flag_rules_condition_info() {
           'number' => array(
             'type' => 'integer',
             'label' => t('Number'),
-            'description' => t('The number against which to test the number of times the object is flagged. For example, if you type "3" here, and choose "Greater than" for the operator, then this condition will return TRUE if the object is flagged more than three times.'),
+            'description' => t('The number against which to test the number of
+              times the object is flagged. For example, if you type "3" here,
+              and choose "Greater than" for the operator, then this condition
+              will return TRUE if the object is flagged more than three times.
+              During a flagging or an unflagging event the count will take into
+              account the current flag/unflag process.'),
           ),
           'operator' => array(
             'type' => 'text',
@@ -518,7 +551,7 @@ function flag_rules_condition_info() {
             'type' => 'flag',
             'label' => t('Flag'),
             'flag_type' => $type,
-            'description' => t('The flag to check for.')
+            'description' => t('The flag to check for.'),
           ),
           $type => array(
             'type' => $type,
@@ -539,7 +572,8 @@ function flag_rules_condition_info() {
 }
 
 /**
- * Options list callback for the operator parameter of the flagging threshold condition.
+ * Options list callback for the operator parameter of the flagging threshold
+ * condition.
  */
 function flag_rules_condition_threshold_operator_options() {
   return array(
@@ -553,15 +587,18 @@ function flag_rules_condition_threshold_operator_options() {
 
 /**
  * Condition: Check flagging count.
+ *
+ * The count that is returned during a flagging or an unflagging will take into
+ * acount the current flag/unflag process.
  */
 function flag_rules_condition_threshold($flag, $entity, $number, $operator = '=') {
   $count = $flag->get_count($flag->get_entity_id($entity));
 
   switch ($operator) {
-    case '>' : return $count >  $number;
+    case '>': return $count > $number;
     case '>=': return $count >= $number;
-    case '=' : return $count == $number;
-    case '<' : return $count <  $number;
+    case '=': return $count == $number;
+    case '<': return $count < $number;
     case '<=': return $count <= $number;
   }
 }
