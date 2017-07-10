@@ -91,7 +91,10 @@ function simplesamlphp_auth_loginpage() {
     }
 
     // Require the user to be authenticated.
-    $_simplesamlphp_auth_as->requireAuth();
+    $_simplesamlphp_auth_as->requireAuth(array(
+      // rickward: explicitly not setting port to prevent bad port redirects when used on Pantheon
+      'ReturnTo' => 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
+    ));
 
     // If the user is authenticated, send them along.
   }
