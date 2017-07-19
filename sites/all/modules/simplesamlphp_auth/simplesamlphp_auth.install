@@ -66,7 +66,7 @@ function simplesamlphp_auth_requirements($phase) {
       );
     }
 
-    $basedir = variable_get('simplesamlphp_auth_installdir', '/usr/share/simplesamlphp');
+    $basedir = variable_get('simplesamlphp_auth_installdir', '/private/simplesamlphp');
     if (!file_exists($basedir . '/lib/_autoload.php')) {
       $requirements['simplesamlphp_auth'] = array(
         'severity'    => REQUIREMENT_ERROR,
