@@ -125,7 +125,7 @@ function _simplesaml_auth_autoload() {
   global $_simplesamlphp_auth_saml_version;
 
   // Get the simplesamlphp session.
-  $basedir = variable_get('simplesamlphp_auth_installdir', '/usr/share/simplesamlphp');
+  $basedir = variable_get('simplesamlphp_auth_installdir', '/private/simplesamlphp');
   if (file_exists($basedir . '/lib/_autoload.php')) {
     require_once $basedir . '/lib/_autoload.php';
   }
