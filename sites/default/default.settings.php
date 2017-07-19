@@ -637,3 +637,43 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  * @see drupal_clean_css_identifier()
  */
 # $conf['allow_css_double_underscores'] = TRUE;
+#
+# Custom Settings
+# 20170719 - Clay
+
+if (isset($_SERVER[‘PANTHEON_ENVIRONMENT’])) {
+    $ps = json_decode($_SERVER[‘PRESSFLOW_SETTINGS’], TRUE);
+    $settings[‘simplesamlphp_dir’] = ‘/srv/bindings/‘. $ps[‘conf’][‘pantheon_binding’] .‘/code/private/simplesamlphp’;
+    $conf[‘simplesamlphp_auth_installdir’] = ‘/srv/bindings/‘. $ps[‘conf’][‘pantheon_binding’] .‘/code/private/simplesamlphp’;
+}
+
+# TODO: These values will need to be updates
+$domain_name = ‘sas-starter’;
+
+#$url = array(
+#    ‘dev’  => ‘dev-’ . $domain_name . ‘.sas.upenn.edu’,
+#    ‘test’ => ‘test-’ . $domain_name . ‘.sas.upenn.edu’,
+#    ‘live’ => $domain_name . ‘.sas.upenn.edu’,
+#);
+
+$url = array(
+    ‘dev’  => ‘dev-’ . $domain_name . ‘.pantheonsite.io’,
+    ‘test’ => ‘test-’ . $domain_name . ‘.pantheonsite.io’,
+    ‘live’ => $domain_name . ‘.sas.upenn.edu’,
+);
+
+if (isset($_SERVER[‘PANTHEON_ENVIRONMENT’]) &&
+ (in_array($_SERVER[‘PANTHEON_ENVIRONMENT’], array(‘dev’, ‘test’, ‘live’), TRUE)) &&
+ (php_sapi_name() != “cli”)) {
+    if ($_SERVER[‘HTTP_HOST’] != $url[$_SERVER[‘PANTHEON_ENVIRONMENT’]] ||
+     !isset($_SERVER[‘HTTP_X_SSL’]) ||
+     $_SERVER[‘HTTP_X_SSL’] != ‘ON’ ) {
+        header(‘HTTP/1.0 301 Moved Permanently’);
+        header(‘Location: https://‘. $url[$_SERVER[‘PANTHEON_ENVIRONMENT’]] . $_SERVER[‘REQUEST_URI’]);
+        exit();
+    }
+}
+
+
+
+
