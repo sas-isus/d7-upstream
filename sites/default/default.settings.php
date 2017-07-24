@@ -647,18 +647,7 @@ if (isset($_SERVER['PANTHEON_ENVIRONMENT'])) {
     $conf['simplesamlphp_auth_installdir'] = '/srv/bindings/'. $ps['conf']['pantheon_binding'] .'/code/private/simplesamlphp';
 }
 
-# TODO: live will need to be tweaked for every site.
-#$url = array(
-#    'dev'  => 'dev-' . $domain_name . '.pantheonsite.io',
-#    'test' => 'test-' . $domain_name . '.pantheonsite.io',
-#    'live' => $domain_name . '.sas.upenn.edu',
-#);
-
-#if (isset($_SERVER['PANTHEON_ENVIRONMENT']) &&
-# (in_array($_SERVER['PANTHEON_ENVIRONMENT'], array('dev', 'test', 'live'), TRUE)) &&
-# (php_sapi_name() != "cli")) {
-
-if(empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == "OFF") {
+if((empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == "OFF") && (php_sapi_name() != "cli")) {
     header('HTTP/1.0 301 Moved Permanently');
     header('Location: https://'. $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
     exit();
