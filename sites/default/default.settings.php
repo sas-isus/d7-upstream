@@ -661,7 +661,7 @@ if (isset($_SERVER['PANTHEON_ENVIRONMENT'])) {
 
 if (!isset($_SERVER['HTTP_X_SSL']) || $_SERVER['HTTP_X_SSL'] != 'ON' ) {
     header('HTTP/1.0 301 Moved Permanently');
-    header('Location: https://'. $_SERVER['SERVER_NAME']);
+    header('Location: https://'. $_SERVER['HOST']);
     exit();
 }
 
