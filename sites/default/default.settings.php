@@ -659,7 +659,7 @@ if (isset($_SERVER['PANTHEON_ENVIRONMENT'])) {
 # (php_sapi_name() != "cli")) {
 
 
-if (!isset($_SERVER['HTTP_X_SSL']) || $_SERVER['HTTP_X_SSL'] != 'ON' ) {
+if (!isset($_SERVER['HTTPS']))  {
     header('HTTP/1.0 301 Moved Permanently');
     header('Location: https://'. $_SERVER['HOST']);
     exit();
