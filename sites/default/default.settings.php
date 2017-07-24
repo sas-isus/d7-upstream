@@ -658,9 +658,7 @@ if (isset($_SERVER['PANTHEON_ENVIRONMENT'])) {
 # (in_array($_SERVER['PANTHEON_ENVIRONMENT'], array('dev', 'test', 'live'), TRUE)) &&
 # (php_sapi_name() != "cli")) {
 
-echo 'DEBUG: ' . $_SERVER['HTTPS'] . ', ' $_SERVER['HTTP_HOST'] . ', ' . $_SERVER['REQUEST_URI'];
-
-if(empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == "off") {
+if(empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == "OFF") {
     header('HTTP/1.0 301 Moved Permanently');
     header('Location: https://'. $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
     exit();
