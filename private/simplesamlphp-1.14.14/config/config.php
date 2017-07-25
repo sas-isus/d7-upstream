@@ -1,8 +1,26 @@
 <?php
-/* 
+/*
  * The configuration of SimpleSAMLphp
- * 
+ *
  */
+
+if (!ini_get('session.save_handler')) {
+  ini_set('session.save_handler', 'file');
+}
+
+$host = $_SERVER['HTTP_HOST'];
+if ((isset($_ENV)) && (isset($_ENV['PANTHEON_ENVIRONMENT']))) {
+	$ps = json_decode($_SERVER['PRESSFLOW_SETTINGS'], TRUE);
+	$drop_id = $ps['conf']['pantheon_binding'];
+	$db = $ps['databases']['default']['default'];
+    $certdir = '/srv/bindings/'. $drop_id .'/code/private/saml-cert/';
+	$tempdir = '/srv/bindings/'. $drop_id .'/tmp/simplesaml';
+} else {
+	include $_SERVER['DOCUMENT_ROOT'] . '/sites/default/settings.php';
+  $certdir = 'cert/';
+	$tempdir = '/tmp/simplesaml';
+	$db = $databases['default']['default'];
+}
 
 $config = array(
 
@@ -21,17 +39,17 @@ $config = array(
      * external url, no matter where you come from (direct access or via the
      * reverse proxy).
      */
-    'baseurlpath' => 'simplesaml/',
-    'certdir' => 'cert/',
-    'loggingdir' => 'log/',
-    'datadir' => 'data/',
+	 'baseurlpath'           => 'https://'. $host .'/simplesaml/',
+	 'certdir'               => $certdir,
+	 'loggingdir'            => 'log/',
+	 'datadir'               => 'data/',
 
     /*
      * A directory where SimpleSAMLphp can save temporary files.
      *
      * SimpleSAMLphp will attempt to create this directory if it doesn't exist.
      */
-    'tempdir' => '/tmp/simplesaml',
+	 'tempdir'               => $tempdir,
 
 
     /*
@@ -43,7 +61,7 @@ $config = array(
      * Note: The messages are logged with the DEBUG log level, so you also need to set
      * the 'logging.level' option to LOG_DEBUG.
      */
-    'debug' => false,
+    'debug' => FALSE,
 
     /*
      * When showerrors is enabled, all error messages and stack traces will be output
@@ -52,8 +70,8 @@ $config = array(
      * When errorreporting is enabled, a form will be presented for the user to report
      * the error to technicalcontact_email.
      */
-    'showerrors' => true,
-    'errorreporting' => true,
+    'showerrors' => TRUE,
+    'errorreporting' => TRUE,
 
     /**
      * Custom error show function called from SimpleSAML_Error_Error::show.
@@ -67,7 +85,7 @@ $config = array(
      * This option allows you to enable validation of XML data against its
      * schemas. A warning will be written to the log if validation fails.
      */
-    'debug.validatexml' => false,
+    'debug.validatexml' => FALSE,
 
     /**
      * This password must be kept secret, and modified from the default value 123.
@@ -75,9 +93,9 @@ $config = array(
      * metadata listing and diagnostics pages.
      * You can also put a hash here; run "bin/pwgen.php" to generate one.
      */
-    'auth.adminpassword' => '123',
-    'admin.protectindexpage' => false,
-    'admin.protectmetadata' => false,
+    'auth.adminpassword'		=> '123',
+    'admin.protectindexpage' => FALSE,
+    'admin.protectmetadata' => FALSE,
 
     /**
      * This is a secret salt used by SimpleSAMLphp when it needs to generate a secure hash
@@ -85,17 +103,17 @@ $config = array(
      * 'secretsalt' can be any valid string of any length.
      *
      * A possible way to generate a random salt is by running the following command from a unix shell:
-     * tr -c -d '0123456789abcdefghijklmnopqrstuvwxyz' </dev/urandom | dd bs=32 count=1 2>/dev/null;echo
+     * tr -c -d '0123456789abcdefghijklmnopqrstuvwxyz' </dev/urandom | dd bs=32 count=1 2>/dev/NULL;echo
      */
-    'secretsalt' => 'defaultsecretsalt',
+	  'secretsalt' => 'defaultsecretsalt',
 
     /*
      * Some information about the technical persons running this installation.
      * The email address will be used as the recipient address for error reports, and
      * also as the technical contact in generated metadata.
      */
-    'technicalcontact_name' => 'Administrator',
-    'technicalcontact_email' => 'na@example.org',
+    'technicalcontact_name' => 'SAS Computing ISUS',
+    'technicalcontact_email' => 'admin-staff@sas.upenn.edu',
 
     /*
      * The timezone of the server. This option should be set to the timezone you want
@@ -104,7 +122,7 @@ $config = array(
      *
      * See this page for a list of valid timezones: http://php.net/manual/en/timezones.php
      */
-    'timezone' => null,
+    'timezone' => NULL,
 
     /*
      * Logging.
@@ -217,7 +235,7 @@ $config = array(
      * SQL database credentials
      */
     'database.username' => 'simplesamlphp',
-    'database.password' => 'secret',
+    'database.password' => '$0s3cret',
 
     /*
      * (Optional) Table prefix
@@ -225,9 +243,9 @@ $config = array(
     'database.prefix' => '',
 
     /*
-     * True or false if you would like a persistent database connection
+     * TRUE or FALSE if you would like a persistent database connection
      */
-    'database.persistent' => false,
+    'database.persistent' => FALSE,
 
     /*
      * Database slave configuration is optional as well. If you are only
@@ -245,7 +263,7 @@ $config = array(
             'dsn' => 'mysql:host=myslave;dbname=saml',
             'username' => 'simplesamlphp',
             'password' => 'secret',
-            'persistent' => false,
+            'persistent' => FALSE,
         ),
         */
     ),
@@ -259,11 +277,11 @@ $config = array(
      * one of the functionalities below, but in some cases you could run multiple functionalities.
      * In example when you are setting up a federation bridge.
      */
-    'enable.saml20-idp' => false,
-    'enable.shib13-idp' => false,
-    'enable.adfs-idp' => false,
-    'enable.wsfed-sp' => false,
-    'enable.authmemcookie' => false,
+    'enable.saml20-idp' => TRUE,
+    'enable.shib13-idp' => FALSE,
+    'enable.adfs-idp' => FALSE,
+    'enable.wsfed-sp' => FALSE,
+    'enable.authmemcookie' => FALSE,
 
 
     /*
@@ -336,7 +354,7 @@ $config = array(
      * Example:
      *  'session.cookie.domain' => '.example.org',
      */
-    'session.cookie.domain' => null,
+    'session.cookie.domain' => NULL,
 
     /*
      * Set the secure flag in the cookie.
@@ -345,7 +363,7 @@ $config = array(
      * through https. If the user can access the service through
      * both http and https, this must be set to FALSE.
      */
-    'session.cookie.secure' => false,
+    'session.cookie.secure' => TRUE,
 
     /*
      * Enable secure POST from HTTPS to HTTP.
@@ -358,14 +376,14 @@ $config = array(
      * https://idp.example.org/ssp/, then
      * http://idp.example.org/ssp/module.php/core/postredirect.php must be accessible.
      */
-    'enable.http_post' => false,
+    'enable.http_post' => FALSE,
 
     /*
      * Options to override the default settings for php sessions.
      */
     'session.phpsession.cookiename' => 'SimpleSAML',
-    'session.phpsession.savepath' => null,
-    'session.phpsession.httponly' => true,
+    'session.phpsession.savepath' => NULL,
+    'session.phpsession.httponly' => TRUE,
 
     /*
      * Option to override the default settings for the auth token cookie
@@ -385,8 +403,8 @@ $config = array(
      * It's advised to use remember me feature with session checking function
      * defined with 'session.check_function' option.
      */
-    'session.rememberme.enable' => false,
-    'session.rememberme.checked' => false,
+    'session.rememberme.enable' => FALSE,
+    'session.rememberme.checked' => FALSE,
     'session.rememberme.lifetime' => (14 * 86400),
 
     /**
@@ -412,13 +430,13 @@ $config = array(
      * Options to override the default settings for the language parameter
      */
     'language.parameter.name' => 'language',
-    'language.parameter.setcookie' => true,
+    'language.parameter.setcookie' => TRUE,
 
     /*
      * Options to override the default settings for the language cookie
      */
     'language.cookie.name' => 'language',
-    'language.cookie.domain' => null,
+    'language.cookie.domain' => NULL,
     'language.cookie.path' => '/',
     'language.cookie.lifetime' => (60 * 60 * 24 * 900),
 
@@ -458,7 +476,7 @@ $config = array(
      *
      * Example: 'attributes.extradictionary' => 'ourmodule:ourattributes',
      */
-    'attributes.extradictionary' => null,
+    'attributes.extradictionary' => NULL,
 
     /*
      * Which theme directory should be used?
@@ -474,13 +492,13 @@ $config = array(
     /*
      * Whether the discovery service should allow the user to save his choice of IdP.
      */
-    'idpdisco.enableremember' => true,
-    'idpdisco.rememberchecked' => true,
+    'idpdisco.enableremember' => TRUE,
+    'idpdisco.rememberchecked' => TRUE,
 
     // Disco service only accepts entities it knows.
-    'idpdisco.validate' => true,
+    'idpdisco.validate' => TRUE,
 
-    'idpdisco.extDiscoveryStorage' => null,
+    'idpdisco.extDiscoveryStorage' => NULL,
 
     /*
      * IdP Discovery service look configuration.
@@ -503,7 +521,7 @@ $config = array(
      * option to TRUE. It can also be overridden on a pr. SP basis by adding an option with the
      * same name to the metadata of the SP.
      */
-    'shib13.signresponse' => true,
+    'shib13.signresponse' => TRUE,
 
 
     /*
@@ -672,38 +690,25 @@ $config = array(
     ),
 
 
-    /*
-     * Configure the datastore for SimpleSAMLphp.
-     *
-     * - 'phpsession': Limited datastore, which uses the PHP session.
-     * - 'memcache': Key-value datastore, based on memcache.
-     * - 'sql': SQL datastore, using PDO.
-     *
-     * The default datastore is 'phpsession'.
-     *
-     * (This option replaces the old 'session.handler'-option.)
-     */
-    'store.type'                    => 'phpsession',
-
-
-    /*
-     * The DSN the sql datastore should connect to.
-     *
-     * See http://www.php.net/manual/en/pdo.drivers.php for the various
-     * syntaxes.
-     */
-    'store.sql.dsn'                 => 'sqlite:/path/to/sqlitedatabase.sq3',
-
-    /*
-     * The username and password to use when connecting to the database.
-     */
-    'store.sql.username' => null,
-    'store.sql.password' => null,
-
-    /*
-     * The prefix we should use on our tables.
-     */
-    'store.sql.prefix' => 'SimpleSAMLphp',
+	/*
+	 * Configure the datastore for simpleSAMLphp.
+	 *
+	 * - 'phpsession': Limited datastore, which uses the PHP session.
+	 * - 'memcache': Key-value datastore, based on memcache.
+	 * - 'sql': SQL datastore, using PDO.
+	 *
+	 * The default datastore is 'phpsession'.
+	 *
+	 * (This option replaces the old 'session.handler'-option.)
+	 */
+	'store.type' => 'sql',
+    'store.sql.dsn' => 'mysql:host='. $db['host'] .';port='. $db['port'] .';dbname='. $db['database'],
+    'store.sql.username' => $db['username'],
+    'store.sql.password' => $db['password'],
+	/*
+	 * The prefix we should use on our tables.
+	 */
+	'store.sql.prefix' => 'simpleSAMLphp',
 
 
     /*
@@ -772,7 +777,7 @@ $config = array(
      * than one instance is using memcache, you probably want to assign
      * a unique value per instance to this setting to avoid data collision.
      */
-    'memcache_store.prefix' => null,
+    'memcache_store.prefix' => NULL,
 
 
     /*
@@ -799,7 +804,7 @@ $config = array(
      * Metadata signing can also be enabled for a individual SP or IdP by setting the
      * same option in the metadata for the SP or IdP.
      */
-    'metadata.sign.enable' => false,
+    'metadata.sign.enable' => FALSE,
 
     /*
      * The default key & certificate which should be used to sign generated metadata. These
@@ -811,9 +816,9 @@ $config = array(
      * the 'certificate' and 'privatekey' option in the metadata will be used.
      * if those aren't set, signing of metadata will fail.
      */
-    'metadata.sign.privatekey' => null,
-    'metadata.sign.privatekey_pass' => null,
-    'metadata.sign.certificate' => null,
+    'metadata.sign.privatekey' => NULL,
+    'metadata.sign.privatekey_pass' => NULL,
+    'metadata.sign.certificate' => NULL,
 
 
     /*
@@ -822,7 +827,7 @@ $config = array(
      * Example:
      *   'proxy' => 'tcp://proxy.example.com:5100'
      */
-    'proxy' => null,
+    'proxy' => NULL,
 
     /*
      * Array of domains that are allowed when generating links or redirections
