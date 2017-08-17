@@ -70,8 +70,8 @@ $config = array(
      * When errorreporting is enabled, a form will be presented for the user to report
      * the error to technicalcontact_email.
      */
-    'showerrors' => TRUE,
-    'errorreporting' => TRUE,
+    'showerrors' => FALSE,
+    'errorreporting' => FALSE,
 
     /**
      * Custom error show function called from SimpleSAML_Error_Error::show.
