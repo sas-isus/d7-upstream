@@ -23,9 +23,9 @@ function penncourse_init() {
 } */
 
 function penncourse_init() {
-    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/replace/ui/ui/minified/jquery.effects.core.min.js');
-    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/replace/ui/ui/minified/jquery.effects.slide.min.js');
-    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/replace/ui/ui/minified/jquery.effects.fade.min.js');
+    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/replace/ui/ui/minified/jquery.ui.core.min.js');
+    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/replace/ui/ui/minified/jquery.ui.effect-slide.min.js');
+    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/replace/ui/ui/minified/jquery.ui.effect-fade.min.js');
     drupal_add_css(drupal_get_path('module', 'jquery_update') . '/replace/ui/themes/base/minified/jquery.ui.core.min.css');
     drupal_add_css(drupal_get_path('module', 'jquery_update') . '/replace/ui/themes/base/minified/jquery.ui.theme.min.css');
 }
@@ -40,7 +40,7 @@ function penncourse_help($section='') {
 
   switch ($section) {
     case "admin/help#penncourse":
-      $output = '<p>'.  t("Displays course HELLO information from the Penn Data Warehouse. Requires separate configuration of data synchronization tasks."). '</p>';
+      $output = '<p>' . t("Displays course information from the Penn Data Warehouse. Requires separate configuration of data synchronization tasks.") . '</p>';
       break;
   }
 
@@ -91,6 +91,24 @@ function penncourse_menu() {
         'type' => MENU_CALLBACK,
         'file' => 'penncourse.pages.inc',
     );
+    /* $items['pc/test'] = array(
+        'title' => 'Courses',
+        'page callback' => 'penncourse_data_retrieve_test',
+        'page arguments' => array(NULL),
+        'access callback' => 'user_access',
+        'access arguments' => array('admin penncourse'),
+        'type' => MENU_CALLBACK,
+        'file' => 'penncourse.pages.inc',
+    );
+    $items['pc/whack'] = array(
+        'title' => 'Courses',
+        'page callback' => '_penncourse_whack',
+        'page arguments' => array(NULL),
+        'access callback' => 'user_access',
+        'access arguments' => array('admin penncourse'),
+        'type' => MENU_CALLBACK,
+        'file' => 'penncourse.include.inc',
+    ); */
     $items['pc/term/%'] = array(
         'title' => 'Courses',
         'page callback' => 'penncourse_course_list_term',
@@ -199,7 +217,7 @@ function penncourse_filter_form($form, &$form_state) {
     );
 
     $subjects = penncourse_get_all_subjects();
-    $subjects = array_merge( array('all' => 'All department subjects'), $subjects);
+    $subjects = array_merge(array('all' => 'All department subjects'), $subjects);
     $form['Subject'] = array(
         '#type' => 'select',
         '#title' => t('Subject'),
@@ -233,21 +251,12 @@ function penncourse_filter_form_submit($form, &$form_state) {
  * Implementation of hook_cron
  */
 function penncourse_cron() {
-
-  // load dependencies
   module_load_include('inc', 'penncourse', 'penncourse.include');
 
-  // ban running this cron from 7am-7pm to avoid mysql overload during peak times
-  $time = date('H:i');
-  if ( $time >= '07:00' && $time <= '19:00' ) {
-    $e = new Exception("Penncourse cron is banned from running 7am-7pm");
-    pcpm($e->getMessage());
-    penncourse_log_exception($e, 'skipping cron');
-    return;
-  }
-
+  // update the section search parameters (includes currently open terms and subject area mappings)
+  penncourse_update_section_params();
   $subject_array = explode(' ', trim(variable_get('penncourse_subject_areas', '')));
-  
+
   // process each subject area as set on the penncourse system settings form
   foreach ($subject_array as $subject) {
     penncourse_process_subj_area($subject);
@@ -256,7 +265,7 @@ function penncourse_cron() {
 
 /**
  * function pcpm
- * 
+ *
  * a wrapper for the devel module dpm function
  */
 function pcpm($value) {
@@ -264,4 +273,3 @@ function pcpm($value) {
     dpm($value);
   }
 }
-

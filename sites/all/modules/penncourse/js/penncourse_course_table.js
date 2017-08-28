@@ -97,7 +97,7 @@
             if (activeRow.data().editLink) {
                 newRow += '<div class="field"><div class="pc-edit">' + activeRow.data().editLink + '</div></div>';
             }
-            if (activeRow.data().xlist.trim() != "<ul></ul>") {
+            if (activeRow.data().xlist.trim()) {
                 newRow += '<div class="field"><div class="pc-xlist field-label">Crosslistings</div>';
                 newRow += '<div class="pc-xlist">' + activeRow.data().xlist + '</div></div>';
             }

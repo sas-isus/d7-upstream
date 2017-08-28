@@ -76,6 +76,10 @@ function penncourse_text_format_enable() {
 
 
 function penncourse_install() {
+    _penncourse_create_role();
+    _penncourse_create_user();
+    _penncourse_update_content_user();
+
     // get appropriate translation function
     $t = get_t();
     $content_type_array = array(
@@ -172,8 +176,7 @@ function _penncourse_create_user() {
 
     if($penncourse_role){
         // assign the penncourse user role
-        $role = user_role_load_by_name('sas event calendar user');
-        user_multiple_role_edit(array($penncourse_user->uid), 'add_role', $role->rid);
+        user_multiple_role_edit(array($penncourse_user->uid), 'add_role', $penncourse_role->rid);
     }
 }
 
