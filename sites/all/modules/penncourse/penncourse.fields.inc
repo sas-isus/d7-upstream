@@ -2559,7 +2559,7 @@ function penncourse_build_fields() {
             'module' => 'text',
         ),
         'settings' => array(
-            'text_processing' => 0,
+            'text_processing' => '1',
             'user_register_form' => FALSE,
         ),
         'display' => array(

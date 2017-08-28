@@ -1,7 +1,7 @@
 name = PennCourse
-description = "Displays course information from the Penn Data Warehouse. Requires separate configuration of data synchronization tasks."
+description = "Displays course information from the Penn-In-Touch web service."
 package = Penn
-version = 7.x-1.0
+version = 7.x-2.0
 core = 7.x
 files[] = penncourse.module
 files[] = penncourse.admin.inc
