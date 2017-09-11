@@ -1,6 +1,4 @@
 # Custom ignore paths
-private/simplesamlphp-1.14.14/config/authsources.php
-#private/simplesamlphp-1.14.14/config/config.php
 private/simplesamlphp-1.14.14/metadata/saml20-idp-remote.php
 
 # Ignore paths that contain user-generated content.
