@@ -1,0 +1,8 @@
+name = Penn 403
+description = "custom 403 error page for use with SAML/Shibboleth authentication"
+package = Penn
+version = "7.x-1.0"
+core = 7.x
+files[] = penn403.module
+files[] = penn403.install
+files[] = penn403.admin.inc
