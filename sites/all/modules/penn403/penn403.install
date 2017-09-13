@@ -1,0 +1,23 @@
+<?php
+/**
+ * @file
+ * penn403.install
+ *
+ * Penn 403 Module v. 7.x-1.x
+ *
+ * Set system variables
+ */
+
+/**
+ * Implementation of hook_install
+ */
+function penn403_install() {
+  variable_set('site_403', 'penn403_access_denied');
+}
+
+/**
+ * Implementation of hook_uninstall
+ */
+function penn403_uninstall() {
+  variable_set('site_403', '');
+}

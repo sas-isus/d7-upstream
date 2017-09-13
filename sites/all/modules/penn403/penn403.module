@@ -1,0 +1,123 @@
+<?php
+/**
+ * @file
+ * penn403.module
+ *
+ * Penn 403 Module v. 7.x-1.x
+ *
+ * Custom 403 Access Denied page for the University Of Pennsylvania
+ */
+
+/**
+ * Implementation of hook_menu()
+ */
+function penn403_menu() {
+  $items['admin/config/system/penn403'] = array(
+    'title' => 'Penn 403',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('penn403_admin_settings'),
+    'access arguments' => array('administer penn403'),
+    'description' => 'Change settings for the Penn 403 module.',
+    'file' => 'penn403.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['penn403_access_denied'] = array(
+    'title' => 'Access Denied',
+    'page callback' => 'penn403_access_denied',
+    'page arguments' => array(),
+    'access callback' => TRUE,
+    'weight' => 100,
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+} // function penn403_menu()
+
+/**
+ * Implements hook_admin_paths().
+ */
+function penn403_admin_paths() {
+  return array('admin/config/system/penn403' => TRUE);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function penn403_permission() {
+  return array(
+    'administer penn403' => array(
+      'title' => t('Administer Penn 403 configuration'),
+    ),
+  );
+}
+
+/**
+ * function penn403_theme()
+ *
+ * implementation of hook_theme()
+ */
+function penn403_theme() {
+  return array(
+    'penn403_login_required' => array(
+      'arguments' => array(),
+    ),
+    'penn403_insufficient_privileges' => array(
+      'arguments' => array(),
+    ),
+  );
+} // function penn403_theme()
+
+/**
+ * function theme_penn403_login_required()
+ */
+function theme_penn403_login_required() {
+  // here we are relying on the simplesamlphp_auth module
+  $login_path = variable_get('simplesamlphp_auth_login_path', 'saml_login');
+  drupal_set_title(t('Login Required'));
+  $output = '';
+  $output .= '<div class="penn403-login">';
+  $output .= l(t('Log in using your PennKey.'), $login_path, array('query' => array('destination' => request_path())));
+  $output .= '</div>';
+  return $output;
+} // function theme_penn403_login_required()
+
+/**
+ * function theme_penn403_insufficient_privileges()
+ */
+function theme_penn403_insufficient_privileges() {
+  $output = '';
+  $output .= '<div class="penn403-insufficient-privileges">';
+  $output .= 'You do not have sufficient privileges to access this page. ';
+  $output .= t('Please') . ' ' . l(t('contact the site administrator'), 'mailto:' . variable_get('site_mail', 'isus@sas.upenn.edu'), array('attributes' => array('rel' => 'nofollow'))) . ' ' . t('to request access.');
+  $output .= '</div>';
+  return $output;
+} // function theme_penn403_insufficient_privileges()
+
+/**
+ * function penn403_access_denied()
+ *
+ * custom access denied (403) page
+ */
+function penn403_access_denied() {
+  drupal_page_is_cacheable(FALSE);
+  global $user;
+
+  if (user_is_anonymous()) {
+    if ( variable_get('penn403_auto_redirect', 'yes') == 'yes') {
+      // here we are relying on the simplesamlphp_auth module
+      $login_path = variable_get('simplesamlphp_auth_login_path', 'saml_login');
+      $url = url($login_path, array('query' => array('destination' => request_path())));
+      header('Location: ' . $url, TRUE, 307);
+    }
+    else {
+      $output = theme('penn403_login_required');
+      return $output;
+    }
+  }
+  else {
+    if (!stripos($_GET['q'], 'saml_login')) {
+      // only display this message if not on a the authorization page, otherwise redirect
+      $output = theme('penn403_insufficient_privileges');
+      return $output;
+    }
+  }
+}
