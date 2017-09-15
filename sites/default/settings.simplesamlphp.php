@@ -1,3 +1,4 @@
+<?php
 #
 # Custom Settings
 # 20170719 - Clay
