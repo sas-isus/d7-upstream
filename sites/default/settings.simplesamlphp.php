@@ -9,8 +9,12 @@ if (isset($_SERVER['PANTHEON_ENVIRONMENT'])) {
     $conf['simplesamlphp_auth_installdir'] = '/srv/bindings/'. $ps['conf']['pantheon_binding'] .'/code/private/simplesamlphp';
 }
 
-if((empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == "OFF") && (php_sapi_name() != "cli")) {
-    header('HTTP/1.0 301 Moved Permanently');
-    header('Location: https://'. $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-    exit();
+// IMPORTANT
+// This is required if settings.primaryredirect.php does not exist
+if (!file_exists(__DIR__ . '/settings.primaryredirect.php')) { 
+    if((empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == "OFF") && (php_sapi_name() != "cli")) {
+        header('HTTP/1.0 301 Moved Permanently');
+        header('Location: https://'. $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+        exit();
+    }
 }
