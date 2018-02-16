@@ -639,17 +639,10 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
 # $conf['allow_css_double_underscores'] = TRUE;
 
 /**
- * Include the primaryredirect, simplesamlphp, and customredirects settings files
+ * Include the settings.redirects-allsites settings file
  */
 /* Every site will need its own primaryredirect settings file  */
-if (file_exists(__DIR__ . '/settings.primaryredirect.php')) {
-    include __DIR__ . "/settings.primaryredirect.php";
+if (file_exists(__DIR__ . '/settings.redirects-allsites.php')) {
+    include __DIR__ . "/settings.redirects-allsites.php";
 }
 
-/* This file should always be included and is the same for all sites */
-include __DIR__ . "/settings.simplesamlphp.php";
-
-/* Every site will need its own customredirects settings file */
-if (file_exists(__DIR__ . '/settings.customredirects.php')) {
-    include __DIR__ . "/settings.customredirects.php";
-}
