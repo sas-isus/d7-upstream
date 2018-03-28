@@ -19,7 +19,7 @@ if (file_exists(__DIR__ . '/settings.redirects-site.php')) {
 
 if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
     // re-set primary domain if we're coming here via pantheonsite.io, and not a vanity domain www.example.com
-    if (preg_match('@pantheonsite.io@',$_SERVER['HTTP_HOST'])) {
+    if (preg_match('@pantheonsite.io@',$_SERVER['HTTP_HOST']) || !isset($primary_domain)) {
         $primary_domain = $_SERVER['HTTP_HOST'];
     }
 
