@@ -18,10 +18,8 @@ if (file_exists(__DIR__ . '/settings.redirects-site.php')) {
  */
 
 if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
-    // re-set primary domain if we're coming here via pantheonsite.io or 
-    // the $primary_domain isn't set in settings.redirects-site.php.
-    // Override the primary_domain with the $_SERVER['HTTP_HOST']
-    if (preg_match('@pantheonsite.io@',$_SERVER['HTTP_HOST']) || !isset($primary_domain)) {
+    // re-set primary domain if we're coming here via pantheonsite.io, and not a vanity domain www.example.com
+    if (preg_match('@pantheonsite.io@',$_SERVER['HTTP_HOST'])) {
         $primary_domain = $_SERVER['HTTP_HOST'];
     }
 
@@ -42,12 +40,15 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
         header('Location: https://'. $primary_domain . $_SERVER['REQUEST_URI']);
         exit();
     }
+}
 
-    #
-    # From https://pantheon.io/docs/shibboleth-sso/
-    #  D7: $conf['simplesamlphp_auth_installdir'] = $_ENV['HOME'] .'/code/private/simplesamlphp';
-    #  D8: $settings['simplesamlphp_dir'] = $_ENV['HOME'] .'/code/web/private/simplesamlphp';
-    #
+#
+# From https://pantheon.io/docs/shibboleth-sso/
+#  D7: $conf['simplesamlphp_auth_installdir'] = $_ENV['HOME'] .'/code/private/simplesamlphp';
+#  D8-upstream: $settings['simplesamlphp_dir'] = $_ENV['HOME'] .'/code/private/simplesamlphp';
+#  D8-refactored: $settings['simplesamlphp_dir'] = $_ENV['HOME'] .'/code/web/private/simplesamlphp';
+#
+if (isset($_ENV['HOME'])) {
     if (file_exists($_ENV['HOME'] . '/code/web/private/simplesamlphp')) {
         $settings['simplesamlphp_dir'] = $_ENV['HOME'] . '/code/web/private/simplesamlphp';
     }
@@ -59,7 +60,7 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
 if (isset($RewriteMap) && (isset($_SERVER['argv'][1]) || isset($_SERVER['REQUEST_URI']))) {
     #
     # run as:
-    # php settings.rewrites.php /uniconn
+    # php settings.redirects-allsites.php /uniconn
     #
 
     $oldurl = (php_sapi_name() == "cli") ? $_SERVER['argv'][1] : $_SERVER['REQUEST_URI'];
