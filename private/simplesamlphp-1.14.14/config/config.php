@@ -9,6 +9,11 @@ if (!ini_get('session.save_handler')) {
 }
 
 $host = $_SERVER['HTTP_HOST'];
+
+if (file_exists(__DIR__ . '/config.overrides.php')) {
+    include __DIR__ . "/config.overrides.php";
+}
+
 if ((isset($_ENV)) && (isset($_ENV['PANTHEON_ENVIRONMENT']))) {
 	$ps = json_decode($_SERVER['PRESSFLOW_SETTINGS'], TRUE);
 	$drop_id = $ps['conf']['pantheon_binding'];
