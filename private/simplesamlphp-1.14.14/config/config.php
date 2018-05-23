@@ -4,30 +4,27 @@
  *
  */
 
+
 if (!ini_get('session.save_handler')) {
-  ini_set('session.save_handler', 'file');
+    ini_set('session.save_handler', 'file');
 }
 
-$host = $_SERVER['HTTP_HOST'];
-
+$CanonicalHost = $_SERVER[HTTP_HOST];
 if ((isset($_ENV)) && (isset($_ENV['PANTHEON_ENVIRONMENT']))) {
 	$ps = json_decode($_SERVER['PRESSFLOW_SETTINGS'], TRUE);
 	$drop_id = $ps['conf']['pantheon_binding'];
 	$db = $ps['databases']['default']['default'];
-    $certdir = '/srv/bindings/'. $drop_id .'/code/private/saml-cert/';
-    $tempdir = '/srv/bindings/'. $drop_id .'/tmp/simplesaml';
-    
-    if (file_exists('/srv/bindings/'. $drop_id .'/code/sites/default/settings.redirects-site.php')) {
-        include '/srv/bindings/'. $drop_id .'/code/sites/default/settings.redirects-site.php';
-
-        if(isset($primary_domain))
-        {
-          $host = $primary_domain;
-        }
-    }
+	$certdir = '/srv/bindings/'. $drop_id .'/code/web/private/saml-cert/';
+	$tempdir = '/srv/bindings/'. $drop_id .'/tmp/simplesaml';
+	/* You have to include redirects-functions here because settings.php hasn't been included by the
+	 * time this file is included into drupal. 
+ 	 */
+	if (file_exists($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.redirects-functions.php')) {
+		require_once($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.redirects-functions.php');
+		$CanonicalHost = getCanonicalHost();
+	}
 } else {
-	include $_SERVER['DOCUMENT_ROOT'] . '/sites/default/settings.php';
-    $certdir = 'cert/';
+	$certdir = 'cert/';
 	$tempdir = '/tmp/simplesaml';
 	$db = $databases['default']['default'];
 }
@@ -49,7 +46,7 @@ $config = array(
      * external url, no matter where you come from (direct access or via the
      * reverse proxy).
      */
-	 'baseurlpath'           => 'https://'. $host .'/simplesaml/',
+	 'baseurlpath'           => 'https://'. $CanonicalHost .'/simplesaml/',
 	 'certdir'               => $certdir,
 	 'loggingdir'            => 'log/',
 	 'datadir'               => 'data/',

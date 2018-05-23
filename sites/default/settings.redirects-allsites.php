@@ -7,38 +7,35 @@
 
 /* Include primary domain and any site specific redirects   */
 /* THIS FILE MUST EXIST for primary domain redirect to work */
-if (file_exists(__DIR__ . '/settings.redirects-site.php')) {
-    include __DIR__ . "/settings.redirects-site.php";
+
+if (file_exists(__DIR__ . '/settings.redirects-functions.php')) {
+    require_once __DIR__ . "/settings.redirects-functions.php";
 }
+
+// print("'_SERVER[DOCUMENT_ROOT] = '".$_SERVER['DOCUMENT_ROOT']."', _ENV[HOME] = '".$_ENV['HOME']."'");
 
 /*
  * Use _ENV not _SERVER - https://pantheon.io/docs/read-environment-config/
  *
  * Ensure we're on https, redirect to primary domain and set up simplesaml
  */
-
 if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
-    // re-set primary domain if we're coming here via pantheonsite.io, and not a vanity domain www.example.com
-    if (preg_match('@pantheonsite.io@',$_SERVER['HTTP_HOST']) || !isset($primary_domain)) {
-        $primary_domain = $_SERVER['HTTP_HOST'];
+
+    // keep any drupal_hash_salt we set in setting.php or other files
+    if (isset($drupal_hash_salt)) {
+    	$pf = json_decode($_SERVER['PRESSFLOW_SETTINGS']);
+    	$pf->drupal_hash_salt = $drupal_hash_salt;
+    	$_SERVER['PRESSFLOW_SETTINGS'] = json_encode($pf);
     }
 
-    // From https://pantheon.io/docs/domains/
-    // Make sure we check the various ways in which a HTTP site can be accessed
-    if ($_SERVER['HTTP_HOST'] != $primary_domain
-        || !isset($_SERVER['HTTP_USER_AGENT_HTTPS'])
-        || $_SERVER['HTTP_USER_AGENT_HTTPS'] != 'ON'
-        || empty($_SERVER['HTTPS']) 
-        || $_SERVER['HTTPS'] == "OFF") {
+    $CanonicalHost = getCanonicalHost();
+    $ClientHost = getClientHost();
 
-        # Name transaction "redirect" in New Relic for improved reporting (optional)
-        if (extension_loaded('newrelic')) {
-            newrelic_name_transaction("redirect");
-        }
+    // echo "allsites: CanonicalHost = '$CanonicalHost', ClientHost = '$ClientHost'";
 
-        header('HTTP/1.0 301 Moved Permanently');
-        header('Location: https://'. $primary_domain . $_SERVER['REQUEST_URI']);
-        exit();
+    //debug_print_backtrace();
+    if (($CanonicalHost != $ClientHost) || isHTTP()) {
+	redirectTo('https://'. $CanonicalHost . $_SERVER['REQUEST_URI']);
     }
 }
 
@@ -48,12 +45,14 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
 #  D8-upstream: $settings['simplesamlphp_dir'] = $_ENV['HOME'] .'/code/private/simplesamlphp';
 #  D8-refactored: $settings['simplesamlphp_dir'] = $_ENV['HOME'] .'/code/web/private/simplesamlphp';
 #
-if (isset($_ENV['HOME'])) {
-    if (file_exists($_ENV['HOME'] . '/code/web/private/simplesamlphp')) {
-        $settings['simplesamlphp_dir'] = $_ENV['HOME'] . '/code/web/private/simplesamlphp';
+# Above document says to use _ENV[HOME], but _SERVER[DOCUMENT_ROOT] handles whether there is a web directory
+#
+if (isset($_ENV['HOME']) && php_sapi_name() != 'cli') {
+    if (isD8()) {
+        $settings['simplesamlphp_dir'] = $_SERVER['DOCUMENT_ROOT'] . '/private/simplesamlphp';
     }
     else {
-        $conf['simplesamlphp_auth_installdir'] = $_ENV['HOME'] . '/code/private/simplesamlphp';
+        $conf['simplesamlphp_auth_installdir'] = $_SERVER['DOCUMENT_ROOT'] . '/private/simplesamlphp';
     }
 }
 
@@ -69,13 +68,7 @@ if (isset($RewriteMap) && (isset($_SERVER['argv'][1]) || isset($_SERVER['REQUEST
         if (preg_match($key, $oldurl)) {
             $newurl = preg_replace($key,$value,$oldurl);
             if (isset($_ENV['PANTHEON_ENVIRONMENT'])) {
-                # Name transaction "redirect" in New Relic for improved reporting (optional)
-                if (extension_loaded('newrelic')) {
-                    newrelic_name_transaction("redirect");
-                }
-
-                header('HTTP/1.0 301 Moved Permanently');
-                header("Location: $newurl");
+		redirectTo($newurl);
             }
             else {
                 print("$oldurl => $newurl\n");
