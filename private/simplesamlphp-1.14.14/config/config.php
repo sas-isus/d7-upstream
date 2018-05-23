@@ -4,33 +4,55 @@
  *
  */
 
-if (!ini_get('session.save_handler')) {
-  ini_set('session.save_handler', 'file');
-}
 
-$host = $_SERVER['HTTP_HOST'];
+if (!ini_get('session.save_handler')) {
+    ini_set('session.save_handler', 'file');
+}
 
 if ((isset($_ENV)) && (isset($_ENV['PANTHEON_ENVIRONMENT']))) {
 	$ps = json_decode($_SERVER['PRESSFLOW_SETTINGS'], TRUE);
 	$drop_id = $ps['conf']['pantheon_binding'];
 	$db = $ps['databases']['default']['default'];
-    $certdir = '/srv/bindings/'. $drop_id .'/code/private/saml-cert/';
-    $tempdir = '/srv/bindings/'. $drop_id .'/tmp/simplesaml';
-    
-    if (file_exists('/srv/bindings/'. $drop_id .'/code/sites/default/settings.redirects-site.php')) {
-        include '/srv/bindings/'. $drop_id .'/code/sites/default/settings.redirects-site.php';
-
-        if(isset($primary_domain))
-        {
-          $host = $primary_domain;
-        }
-    }
+    $certdir = '/srv/bindings/'. $drop_id .'/code/web/private/saml-cert/';
+	$tempdir = '/srv/bindings/'. $drop_id .'/tmp/simplesaml';
+	/* You have to include redirects-functions here because settings.php hasn't been included by the
+	 * time this file is included into drupal. 
+ 	 */
+	$CanonicalHost = $_SERVER[HTTP_HOST];
+	if (file_exists($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.redirects-functions.php')) {
+		require_once($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.redirects-functions.php');
+		$CanonicalHost = getCanonicalHost();
+	}
 } else {
-	include $_SERVER['DOCUMENT_ROOT'] . '/sites/default/settings.php';
     $certdir = 'cert/';
 	$tempdir = '/tmp/simplesaml';
 	$db = $databases['default']['default'];
 }
+
+
+/*
+ ["HTTP_X_FORWARDED_SERVER"]=>
+  string(56) "www.sas.upenn.edu, cache-jfk8141-JFK, cache-mdw17327-MDW"
+  ["HTTP_X_FORWARDED_PROTO"]=>
+  string(5) "https"
+  ["HTTP_X_FORWARDED_HOST"]=>
+  string(51) "www.sas.upenn.edu, test2-sas-school.pantheonsite.io"
+  ["HTTP_X_FORWARDED_FOR"]=>
+  string(45) "158.130.227.242, 128.91.219.93, 128.91.219.93"
+  ["HTTP_X_FASTLY_ORIG_HOST"]=>
+  string(51) "www.sas.upenn.edu, test2-sas-school.pantheonsite.io"
+  ["HTTP_X_BYPASS_CACHE"]=>
+  string(1) "1"
+  ["HTTP_USER_AGENT_HTTPS"]=>
+  string(2) "ON"
+  ["HTTP_UPGRADE_INSECURE_REQUESTS"]=>
+  string(1) "1"
+  ["HTTP_SURROGATE_CAPABILITY"]=>
+  string(14) "styx="ESI/1.0""
+  ["HTTP_REFERER"]=>
+  string(39) "https://www.sas.upenn.edu/admin/reports"
+  ["HTTP_PANTHEON_PROTO_CHECKS"]=>
+*/
 
 $config = array(
 
@@ -49,7 +71,7 @@ $config = array(
      * external url, no matter where you come from (direct access or via the
      * reverse proxy).
      */
-	 'baseurlpath'           => 'https://'. $host .'/simplesaml/',
+	 'baseurlpath'           => 'https://'. $CanonicalHost .'/simplesaml/',
 	 'certdir'               => $certdir,
 	 'loggingdir'            => 'log/',
 	 'datadir'               => 'data/',
