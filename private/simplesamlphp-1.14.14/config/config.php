@@ -9,7 +9,7 @@ if (!ini_get('session.save_handler')) {
     ini_set('session.save_handler', 'file');
 }
 
-$CanonicalHost = $_SERVER[HTTP_HOST];
+$CanonicalHost = $_SERVER['HTTP_HOST'];
 if ((isset($_ENV)) && (isset($_ENV['PANTHEON_ENVIRONMENT']))) {
 	$ps = json_decode($_SERVER['PRESSFLOW_SETTINGS'], TRUE);
 	$drop_id = $ps['conf']['pantheon_binding'];
