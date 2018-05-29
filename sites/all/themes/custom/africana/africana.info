@@ -1,0 +1,64 @@
+name = Africana
+description = Africana Site Bootstrap Sub-theme.
+core = 7.x
+base theme = bootstrap
+
+; Regions
+regions[navigation]     = 'Navigation'
+regions[header]         = 'Header'
+regions[hero]			      = 'Hero'
+regions[highlighted]    = 'Highlighted'
+regions[help]           = 'Help'
+regions[content]        = 'Content'
+regions[body_content]   = 'Body Content'
+regions[body_content_after]   = 'Body Content: After'
+regions[home_content]   = 'Home Content'
+regions[left_nav]  = 'Left Navigation'
+regions[sidebar_first]  = 'Primary'
+regions[sidebar_second] = 'Secondary'
+regions[footer]         = 'Footer'
+
+; Stylesheets
+stylesheets[all][] = dist/css/screen.css
+stylesheets[all][] = dist/css/addendum.css
+
+;**********************************
+; METHOD 1: Bootstrap Source Files
+;**********************************
+; 
+; ; Scripts
+
+scripts[] = 'dist/js/bootstrap-3.3.5.js'
+scripts[] = 'dist/js/jquery.masonry.js'
+scripts[] = 'dist/js/jquery.masonry.ordered.js'
+scripts[] = 'dist/js/script.js'
+
+; scripts[] = 'bootstrap/js/bootstrap-affix.js'
+; scripts[] = 'bootstrap/js/bootstrap-alert.js'
+; scripts[] = 'bootstrap/js/bootstrap-button.js'
+; scripts[] = 'bootstrap/js/bootstrap-carousel.js'
+; scripts[] = 'bootstrap/js/bootstrap-collapse.js'
+; scripts[] = 'bootstrap/js/bootstrap-dropdown.js'
+; scripts[] = 'bootstrap/js/bootstrap-modal.js'
+; scripts[] = 'bootstrap/js/bootstrap-tooltip.js'
+; scripts[] = 'bootstrap/js/bootstrap-popover.js'
+; scripts[] = 'bootstrap/js/bootstrap-scrollspy.js'
+; scripts[] = 'bootstrap/js/bootstrap-transition.js'
+; scripts[] = 'bootstrap/js/bootstrap-typeahead.js'
+; 
+; ; Settings inherited by base theme, uncomment to override.
+; ;settings[toggle_name] = 0
+; ;settings[toggle_search] = 1
+; ; Disable the CDN as we are using our own source files.
+; settings[cdn_bootstrap] = 0
+
+
+;*************************
+; METHOD 2: Bootstrap CDN
+;*************************
+; 
+; ; Settings inherited by base theme, uncomment to override.
+; ;settings[toggle_name] = 0
+; ;settings[toggle_search] = 1
+; ;settings[cdn_bootstrap] = 1
+; ;settings[cdn_bootstrap_version] = 2.3.2

@@ -1,0 +1,67 @@
+h1, h2, h3, h4, h5, h6 {
+	margin-bottom: 10px;
+}
+
+.block-news-events h3 {
+	font-size: 1.25em;
+}
+
+.block-dept-ppl-list .titles {
+	line-height: 20px;
+}
+
+.block-dept-ppl-list li {
+	font-size: .8em;
+	font-weight: 700;
+}
+
+.node-slideshow.teaser {
+	margin-bottom: 0;
+}
+
+.node-events .field-image img, .node-type-profile .field-image img {
+	float: right;
+	margin: 0 0 20px 20px;
+}
+
+.node-events .field-location {
+	font-weight: 700;
+	color: #999999;
+}
+
+.director img, .director h3 {
+  transition: all 0.25s ease;
+  -webkit-backface-visibility: hidden;
+}
+
+.director:hover img {
+  opacity: .6;
+}
+
+.director:hover h3, .director:hover a {
+  color: #939598;
+}
+
+.director .content .desc p {
+	font-size: 13px;
+}
+
+.banner .body-content p {
+	margin: 0 0 0.8em
+}
+
+.container-content-wrapper h2.main {
+	background-color: #ffffff;
+}
+
+#block-menu-block-6 ul li {
+    margin-bottom: 5px;
+}
+
+.sidebar-first {
+	padding-top: 30px;
+}
+
+#block-penncourse-penncourse-filter-block select {
+	width: 90%;
+}

@@ -1,0 +1,16 @@
+{
+  "name": "africana",
+  "description": "A theme for Africana developed by Eastern Standard.",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://bitbucket.org/contextllc/upenn-africana"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.0",
+    "gulp-sass": "^2.0.4"
+  },
+  "scripts": {
+    "postinstall": "find node_modules/ -name '*.info' -type f -delete"
+  }
+}

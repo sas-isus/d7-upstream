@@ -1,0 +1,155 @@
+h1, h2, h3, h4, h5, h6 {
+	margin-bottom: 10px;
+}
+
+.block-news-events h3 {
+	font-size: 1.25em;
+}
+
+.block-dept-ppl-list .titles {
+	line-height: 20px;
+}
+
+.block-dept-ppl-list li {
+	font-size: .8em;
+	font-weight: 700;
+}
+
+.node-slideshow.teaser {
+	margin-bottom: 0;
+}
+
+.node-events .field-image img, .node-type-profile .field-image img {
+	float: right;
+	margin: 0 0 20px 20px;
+}
+
+.node-events .field-location {
+	font-weight: 700;
+	color: #999999;
+}
+
+.director img, .director h3 {
+  transition: all 0.25s ease;
+  -webkit-backface-visibility: hidden;
+}
+
+.director:hover img {
+  opacity: .6;
+}
+
+.director:hover h3, .director:hover a {
+  color: #939598;
+}
+
+.director .content .desc p {
+	font-size: 13px;
+}
+
+.banner .body-content p {
+	margin: 0 0 0.8em
+}
+
+.container-content-wrapper h2.main {
+	background-color: #ffffff;
+}
+
+#block-menu-block-6 ul li {
+    margin-bottom: 5px;
+}
+
+#block-penncourse-penncourse-filter-block select {
+	width: 90%;
+}
+
+/* social media badges */
+
+.social-badges {
+	margin-bottom: 20px;
+}
+
+.social-badges.inline li {
+	margin-right: 10px;
+	padding: 0;
+}
+
+.social-badges li {
+	height: 32px;
+	width: 32px;
+	line-height: 32px;
+}
+
+.social-badges li a {
+	display: block;
+	text-indent: 100%;
+	background-image: url(../images/social-icons.png);
+	background-repeat: no-repeat;
+	transition: none;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.social-badges li a:hover {
+	transition: none;
+}
+
+.social-badges li a.facebook-badge {
+	background-position: -64px 0;
+}
+
+.social-badges li a.twitter-badge {
+	background-position: -32px 0;
+}
+
+.social-badges li a.facebook-badge:hover {
+	background-position: -64px -32px;
+}
+
+.social-badges li a.twitter-badge:hover {
+	background-position: -32px -32px;
+}
+
+.carousel-control {
+	width: 60px;
+	height: 60px;
+
+line-height: 40px;
+
+-webkit-border-radius: 30px;
+-moz-border-radius: 30px;
+border-radius: 30px;
+
+
+}
+
+.easy_social_box div.easy_social-widget.easy_social-widget-twitter {
+	padding-top: 5px;
+}
+
+.student-news-box-title {
+    position: absolute;
+    text-align: center;
+    background: #333;
+    color: white;
+    width: 100%;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+.view-news span.ext {
+    background-size: contain;
+    margin: 10px;
+    padding-right: 14px;
+}
+
+/* CSS for high-resolution devices */
+@media only screen and (-Webkit-min-device-pixel-ratio: 1.5),
+only screen and (-moz-min-device-pixel-ratio: 1.5),
+only screen and (-o-min-device-pixel-ratio: 3/2),
+only screen and (min-device-pixel-ratio: 1.5) {
+    .social-badges li a.facebook-badge {
+        background-image: url(../images/social-icons@2x.png);
+        background-size: 96px 64px;
+    }
+}
+
