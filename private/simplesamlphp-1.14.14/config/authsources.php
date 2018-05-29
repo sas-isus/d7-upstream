@@ -22,7 +22,7 @@ $config = array(
     'saml:SP',
 		'privatekey' => $siteid . '.pem',
 		'certificate' => $siteid . '.crt',
-		'entityID' => NULL,
+		'entityID' => 'https://africana.sas.upenn.edu',
 		'idp' => 'https://idp.pennkey.upenn.edu/idp/shibboleth',
 		'discoURL' => NULL,
 		'authproc' => array(
