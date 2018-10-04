@@ -107,45 +107,11 @@ function penncourse_data_retrieve_test() {
     $section_params = penncourse_retrieve_section_params();
     pcpm($section_params);
 
-    // retrieve course inventory data for a single course
-    $test_course_retrieve = _penncourse_call_course_service_test();
-    pcpm($test_course_retrieve);
-
     $course_data = penncourse_retrieve_term_courses('ANTH');
     pcpm($course_data);
 
-    $section_data = penncourse_retrieve_term_sections('2018C', 'ANTH');
+    $section_data = penncourse_retrieve_term_sections('2016C', 'ANTH');
     pcpm($section_data);
 
-    // penncourse_load_sections_by_subj('2018C', 'RUSS');
-    // penncourse_process_subj_area('RUSS');
-
-    pcpm(penncourse_get_all_terms());
-
     return $output;
-}
-
-function _penncourse_call_course_service_test() {
-    $curl = curl_init();
-    curl_setopt_array($curl, array(
-        CURLOPT_HTTPHEADER => array(
-            'Authorization-Bearer: ' . variable_get('penncourse_authorization_bearer', ''),
-            'Authorization-Token: ' . variable_get('penncourse_authorization_token', '')
-        ),
-        CURLOPT_RETURNTRANSFER => 1,
-        CURLOPT_URL => 'https://esb.isc-seo.upenn.edu/8091/open_data/course_info/ANTH/219/' . '?page_number=1&number_of_results_per_page=100'
-    ));
-
-    $curl_return = curl_exec($curl);
-
-    $result = json_decode($curl_return);
-
-    $service_error = $result->service_meta->error_text;
-    if (!$service_error && isset($result->result_data)) {
-        return $result;
-        // return $result->result_data;
-    }
-    else {
-        return (object) ['error_text' => $service_error];
-    }
 }

@@ -47,14 +47,14 @@ function penncourse_build_course_node($nid = NULL, $values_array) {
 
     $node->title = $values_array['course_id'] . ' - ' . $values_array['title'];
     $node->field_pc_descr[$node->language][0]['value'] = $values_array['descr'];
-    // $node->field_pc_syllabus[$node->language][0]['url'] = $values_array['syllabus_url'];
+    $node->field_pc_syllabus[$node->language][0]['url'] = $values_array['syllabus_url'];
     $node->field_pc_course_id[$node->language][0]['value'] = $values_array['course_id'];
     $node->field_pc_title[$node->language][0]['value'] = $values_array['title'];
     $node->field_pc_term[$node->language][0]['value'] = $values_array['term'];
-    // $node->field_pc_term_session[$node->language][0]['value'] = $values_array['term_session'];
+    $node->field_pc_term_session[$node->language][0]['value'] = $values_array['term_session'];
     $node->field_pc_subj_area[$node->language][0]['value'] = $values_array['subj_area'];
     $node->field_pc_dist_req[$node->language][0]['value'] = $values_array['dist_req'];
-    // $node->field_pc_status[$node->language][0]['value'] = $values_array['status'];
+    $node->field_pc_status[$node->language][0]['value'] = $values_array['status'];
     $node->field_pc_level[$node->language][0]['value'] = $values_array['level'];
 
     node_save($node);
@@ -398,18 +398,26 @@ function penncourse_load_section_nids($term, $subj_area = NULL) {
 /**
  * function penncourse_process_subj_area($subj_area,$year)
  * processes the course and section entries for a single subject area
- * older versions supported loading historical data (see d7 branch)
- * currently only loads data based on available terms from web service
- *
- * $year parameter is now ignored (see above)
  */
 function penncourse_process_subj_area($subj_area, $year = NULL) {
-  $section_params = variable_get('penncourse_section_params', '');
-  $terms = $section_params->available_terms_map;
-  foreach ($terms as $key => $term) {
-    pcpm($key, $subj_area);
-    penncourse_load_sections_by_subj($key, $subj_area);
-  }
+    if (!$year || ($year == date('Y', REQUEST_TIME))) {
+        $section_params = variable_get('penncourse_section_params', '');
+
+        $terms = $section_params->available_terms_map;
+
+        $start_term = penncourse_start_term();
+        $end_term = penncourse_load_final_term();
+    }
+    else {
+        $start_term = $year . 'A';
+        $end_term = $year . 'C';
+    }
+    $prev_course_term = '';
+    // $course_nid = NULL;
+
+    foreach ($terms as $key => $term) {
+        penncourse_load_sections_by_subj($term, $subj_area);
+    }
 } // function penncourse_process_subj_area()
 
 /**
@@ -531,7 +539,7 @@ function penncourse_load_sections_by_subj($term, $subj_area) {
                     $section_info['location'] = '';
                 }
                 $section_info['section_id'] = $section_record->section_id;
-                $section_info['course'] = $course_nodes[trim($section_record->term) . '-' . trim($section_record->course_department) . trim($section_record->course_number)];
+                $section_info['course'] = $course_nodes[trim($section_record->term) . '-' . trim($section_record->course_id)];
                 $section_info['subj_area'] = $section_record->course_department;
                 $section_info['term'] = $section_record->term;
                 $section_info['term_session'] = $section_record->term_session;
@@ -934,9 +942,7 @@ function penncourse_translate_subject($subj_code) {
     if ($section_params->departments_map) {
         $subject_areas = $section_params->departments_map;
 
-        if (property_exists($subject_areas, $subj_code)) {
-          $subj_descr = $subject_areas->$subj_code;
-        }
+        $subj_descr = $subject_areas->$subj_code;
     }
 
     return $subj_descr;
@@ -1312,11 +1318,6 @@ function penncourse_retrieve_subject_areas() {
 }
 
 
-/**
- * function penncourse_retrieve_section_params
- *
- * for development only: remove all penncourse content
- */
 function penncourse_retrieve_section_params() {
     $curl = curl_init();
     curl_setopt_array($curl, array(
@@ -1330,7 +1331,6 @@ function penncourse_retrieve_section_params() {
 
     $curl_return = curl_exec($curl);
     $result = json_decode($curl_return);
-    watchdog('penncourse test', $curl_return, array(), WATCHDOG_NOTICE);
 
     $service_error = $result->service_meta->error_text;
     if (!$service_error && isset($result->result_data[0])) {
@@ -1346,6 +1346,7 @@ function penncourse_retrieve_section_params() {
  *
  * for development only: remove all penncourse content
  */
+
 function _penncourse_whack() {
     // delete all nodes for the penncourse content types
     foreach (array('pc_section', 'pc_course') AS $content_type) {
