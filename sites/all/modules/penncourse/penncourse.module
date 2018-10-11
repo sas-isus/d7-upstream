@@ -99,8 +99,8 @@ function penncourse_menu() {
         'access arguments' => array('admin penncourse'),
         'type' => MENU_CALLBACK,
         'file' => 'penncourse.pages.inc',
-    );
-    $items['pc/whack'] = array(
+    ); */
+    /* $items['pc/whack'] = array(
         'title' => 'Courses',
         'page callback' => '_penncourse_whack',
         'page arguments' => array(NULL),
@@ -136,7 +136,7 @@ function penncourse_menu() {
         'type' => MENU_CALLBACK,
         'file' => 'penncourse.pages.inc',
     );
-    $items['pc/load/%'] = array(
+    /* $items['pc/load/%'] = array(
         'title' => 'Loading Courses',
         'page callback' => 'penncourse_load_year',
         'page arguments' => array(2),
@@ -144,7 +144,7 @@ function penncourse_menu() {
         'access arguments' => array('admin penncourse'),
         'type' => MENU_CALLBACK,
         'file' => 'penncourse.pages.inc',
-    );
+    ); */
     return $items;
 } // function penncourse_menu()
 
@@ -156,7 +156,7 @@ function penncourse_block_info() {
 
     $blocks['penncourse_filter_block'] = array(
         'info' => t('Course Filter'),
-        'cache' => DRUPAL_CACHE_GLOBAL,
+        'cache' => DRUPAL_NO_CACHE,
     );
 
     return $blocks;
@@ -169,9 +169,17 @@ function penncourse_block_view($delta = '') {
     $block = array();
     switch($delta) {
         case 'penncourse_filter_block':
-            drupal_add_js(drupal_get_path('module', 'penncourse') . '/js/penncourse_filter_form.js');
+            // get form as renderable array first
+            $filter_form = drupal_get_form('penncourse_filter_form');
             $block['subject'] = t('Course Filter');
-            $block['content'] = drupal_get_form('penncourse_filter_form');
+            $block['content'] = array(
+              '#markup' => render($filter_form),
+              '#attached' => array(
+                'js' => array(
+                  drupal_get_path('module', 'penncourse') . '/js/penncourse_filter_form.js',
+                ),
+              ),
+            );
             break;
     }
 
