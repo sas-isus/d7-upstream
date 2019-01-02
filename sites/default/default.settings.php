@@ -642,7 +642,7 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  * Include the settings.redirects-allsites settings file
  */
 /* Every site will need its own primaryredirect settings file  */
-if (file_exists(__DIR__ . '/settings.redirects-allsites.php')) {
-   require_once(__DIR__ . '/settings.redirects-allsites.php');
+if (file_exists(__DIR__ . '/settings.sas.php')) {
+   require_once(__DIR__ . '/settings.sas.php');
 }
 
