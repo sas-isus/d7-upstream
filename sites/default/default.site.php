@@ -1,8 +1,8 @@
 <?php
-  //
-  // Copy from default.site.php to set the 
+	//
+	// Copy from default.site.php to set the 
 	// EntityID, BaseURL, drupal_hash_salt, or RewriteMap
-  //
+	//
 
 	//
 	// EntityID has to be set for simplesaml to work.
@@ -27,14 +27,14 @@
 	// from migrated site.  Code in settings.sas.php will override
 	// the pantheon drupal hash salt with this one.
 	//
-  // global $drupal_hash_salt;
-  // $drupal_hash_salt = 'abc';
+	// global $drupal_hash_salt;
+	// $drupal_hash_salt = 'abc';
 
-  // RewriteMap example
-  //
-  // global $RewriteMap;
-  // $RewriteMap = array(
-  //                     '@^/foo/bar.htm$@'        => '/node/1',
-  //                     '@^/foo/index.html$@'     => '/node/1',
-  //                    );
+	// RewriteMap example
+	//
+	// global $RewriteMap;
+	// $RewriteMap = array(
+	//                     '@^/foo/bar.htm$@'        => '/node/1',
+	//                     '@^/foo/index.html$@'     => '/node/1',
+	//                    );
 ?>
