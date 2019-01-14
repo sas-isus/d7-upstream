@@ -34,8 +34,14 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
 	$CanonicalHost = getCanonicalHost();
 
 	$CurrentHost = $_SERVER['HTTP_HOST'];
-	$RequestURI = $_SERVER['REQUEST_URL'];
 	if (!isProxied() && !isPantheonSite() && isset($CanonicalHost) && $CurrentHost != $CanonicalHost) {
+		if (isset( $_SERVER['REQUEST_URL'])) {
+			$RequestURI = $_SERVER['REQUEST_URL'];
+		}
+		else {
+			$RequestURI = "/";
+		}
+
 		$NewURL = 'https://' . $CanonicalHost . $RequestURL;
 		redirectTo($NewURL, False);
 	}
