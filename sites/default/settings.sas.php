@@ -58,17 +58,9 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && php_sapi_name() != 'cli') {
 #  D8-refactored: $settings['simplesamlphp_dir'] = $_ENV['HOME'] .'/code/web/private/simplesamlphp';
 #
 if (isset($_ENV['HOME'])) {
-	if (isD8()) {
-		if (file_exists($_ENV['HOME'] . '/code/web/private/simplesamlphp')) {
-			$settings['simplesamlphp_dir'] = $_ENV['HOME'] . '/code/web/private/simplesamlphp';
-		}
-		else {
-			$settings['simplesamlphp_dir'] = $_ENV['HOME'] . '/code/private/simplesamlphp';
-		}
-	}
-	else {
-		$conf['simplesamlphp_auth_installdir'] = $_ENV['HOME'] . '/code/private/simplesamlphp';
-	}
+	
+	$conf['simplesamlphp_auth_installdir'] = $_ENV['HOME'] . '/code/private/simplesamlphp';
+
 }
 
 #
@@ -87,7 +79,7 @@ if (isset($RewriteMap) && (isset($_SERVER['argv'][1]) || isset($_SERVER['REQUEST
         if (preg_match($key, $oldurl)) {
             $newurl = preg_replace($key,$value,$oldurl);
             if (isset($_ENV['PANTHEON_ENVIRONMENT'])) {
-		redirectTo($newurl);
+                redirectTo($newurl);
             }
             else {
                 print("$oldurl => $newurl\n");

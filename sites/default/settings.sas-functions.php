@@ -9,9 +9,6 @@ function isPantheonSite () {
 	return(preg_match('@pantheonsite.io@',$_SERVER['HTTP_HOST']));
 }
 
-function isD8() {
-	return(isset($_ENV['HOME']) && (file_exists($_ENV['HOME'].'/code/web') || file_exists($_ENV['HOME'].'/code/modules/contrib')));
-}
 
 function isProxied() {
 	// HTTP_X_FORWARDED_HOST is undefined when coming in through the load-balancer
