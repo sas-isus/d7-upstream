@@ -1,0 +1,12 @@
+name = Token Tree Limit
+description = Reduces depth of token tree search to 2.  Default is 3.  Fixes Entity Tokens so that pages can load without hitting memory cap.
+version = "7.x-1.0"
+core = "7.x"
+
+files[] = token_tree_limit.module
+dependencies[] = token
+project = "token_tree_limit"
+
+; custom module for use on UPenn Drupal sites
+; maintained by Brian J. Kirk (briankir@sas.upenn.edu)
+

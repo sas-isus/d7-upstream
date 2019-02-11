@@ -1,0 +1,15 @@
+<?php
+
+/**
+* This is needed to prevent infinite recursion on the pathauto patterns
+* configuration page. Code is from:
+* http://drupal.org/node/1058912#comment-4801902
+*/
+function token_tree_limit_preprocess_token_tree(&$variables) {
+  if (array_intersect(array('node', 'user'), $variables['token_types'])) {
+    $variables['recursion_limit'] = 2;
+  }
+}
+
+
+?>
