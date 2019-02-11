@@ -1,11 +1,19 @@
 <?php
 
 // getting environment info
-if (isset($_SERVER['PANTHEON_ENVIRONMENT'])) {
-  $siteid = $_SERVER['PANTHEON_ENVIRONMENT'];
-} else {
-  $siteid = "local";
+
+if (isset($_ENV['PANTHEON_SITE_NAME'])) {
+	$SiteName = $_ENV['PANTHEON_SITE_NAME'];
 }
+else {
+	$SiteName = 'local';
+}
+
+if (file_exists($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.sas-functions.php')) {
+        require_once($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.sas-functions.php');
+}
+
+$EntityID = getEntityID();
 
 $config = array(
 
@@ -20,9 +28,9 @@ $config = array(
 	// and Shibboleth 1.3 IdPs.
 	'default-sp' => array(
     'saml:SP',
-		'privatekey' => $siteid . '.pem',
-		'certificate' => $siteid . '.crt',
-		'entityID' => 'https://africana.sas.upenn.edu',
+		'privatekey' => $SiteName . '.pem',
+		'certificate' => $SiteName . '.crt',
+		'entityID' => $EntityID,
 		'idp' => 'https://idp.pennkey.upenn.edu/idp/shibboleth',
 		'discoURL' => NULL,
 		'authproc' => array(

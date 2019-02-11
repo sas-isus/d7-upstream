@@ -9,20 +9,18 @@ if (!ini_get('session.save_handler')) {
     ini_set('session.save_handler', 'file');
 }
 
-$CanonicalHost = $_SERVER['HTTP_HOST'];
+if (file_exists($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.sas-functions.php')) {
+        require_once($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.sas-functions.php');
+}
+
+$BaseURL = getBaseURL();
+
 if ((isset($_ENV)) && (isset($_ENV['PANTHEON_ENVIRONMENT']))) {
 	$ps = json_decode($_SERVER['PRESSFLOW_SETTINGS'], TRUE);
 	$drop_id = $ps['conf']['pantheon_binding'];
 	$db = $ps['databases']['default']['default'];
-	$certdir = '/srv/bindings/'. $drop_id .'/code/web/private/saml-cert/';
+	$certdir = '/srv/bindings/'. $drop_id .'/code/private/saml-cert/';
 	$tempdir = '/srv/bindings/'. $drop_id .'/tmp/simplesaml';
-	/* You have to include redirects-functions here because settings.php hasn't been included by the
-	 * time this file is included into drupal. 
- 	 */
-	if (file_exists($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.redirects-functions.php')) {
-		require_once($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.redirects-functions.php');
-		$CanonicalHost = getCanonicalHost();
-	}
 } else {
 	$certdir = 'cert/';
 	$tempdir = '/tmp/simplesaml';
@@ -46,7 +44,7 @@ $config = array(
      * external url, no matter where you come from (direct access or via the
      * reverse proxy).
      */
-	 'baseurlpath'           => 'https://'. $CanonicalHost .'/simplesaml/',
+	 'baseurlpath'           => $BaseURL . '/simplesaml/',
 	 'certdir'               => $certdir,
 	 'loggingdir'            => 'log/',
 	 'datadir'               => 'data/',

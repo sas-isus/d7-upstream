@@ -140,8 +140,10 @@ function media_field_widget_form(&$form, &$form_state, $field, $instance, $langc
   }
   else if ($element['#entity_type'] == 'paragraphs_item' && !empty($form['#entity'])) {
     $host = $element['#entity']->hostEntity();
-    $element['#media_parent_entity_form_langcode'] = $host->language;
-    $element['#media_parent_entity_source_langcode'] = $host->language;
+    if (isset($host->language)) {
+      $element['#media_parent_entity_form_langcode'] = $host->language;
+      $element['#media_parent_entity_source_langcode'] = $host->language;
+    }
   }
 
   // Add image field specific validators.
@@ -166,7 +168,7 @@ function media_field_widget_form(&$form, &$form_state, $field, $instance, $langc
     foreach ($items as $item) {
       $elements[$delta] = $element;
       $elements[$delta]['#default_value'] = $item;
-      $elements[$delta]['#weight'] = $delta;
+      $elements[$delta]['#weight'] = isset($item['_weight']) ? $item['_weight'] : $delta;
       $delta++;
     }
     // And then add one more empty row for new uploads except when this is a

@@ -477,7 +477,7 @@ function penncourse_load_sections_by_subj($term, $subj_area) {
                 // $course_info['term_session'] = $course_record->term_session;
                 $course_info['subj_area'] = $subj_area;
                 // $course_info['dist_req'] = penncourse_translate_dist_req($course_record->distribution_requirement);
-                $course_info['dist_req'] = $course_record->distribution_requirement;
+                $course_info['dist_req'] = penncourse_translate_dist_req($course_record->distribution_requirement);
                 // $course_info['status'] = $course_record->status;
                 if ($course_record->course_number > 499) {
                     $course_info['level'] = 'graduate';
@@ -879,29 +879,13 @@ function penncourse_start_term() {
 
 /**
  * function penncourse_load_final_term()
- * returns the term code for the most currently published course roster
- *
- * course rosters for the summer and fall are finalized on 2/19
- * rosters for the spring are finalized on 10/1
- *
+ * returns the term code for the most recent term in the database
  */
 function penncourse_load_final_term() {
-    if ((date('n', REQUEST_TIME) >= 10) && (date('j', REQUEST_TIME) >= 1)) {
-        // date is after 10/1 - final term is next spring term
-        $term = date('Y', REQUEST_TIME) + 1;
-        $term .= 'A';
-    }
-    elseif ((date('n', REQUEST_TIME) >= 2) && ((date('j', REQUEST_TIME) >= 19) || (date('n', REQUEST_TIME) >= 3))) {
-        // date is after 2/19 - final term is next (or current) fall term
-        $term = date('Y', REQUEST_TIME);
-        $term .= 'C';
-    }
-    else {
-        // date is before 2/19 - final term is current spring term
-        $term = date('Y', REQUEST_TIME);
-        $term .= 'A';
-    }
-    return $term;
+  $terms = penncourse_get_all_terms();
+  reset($terms);
+  $term = key($terms);
+  return $term;
 } // function penncourse_load_final_term()
 
 /**
