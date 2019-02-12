@@ -8,7 +8,7 @@
 	// EntityID has to be set for simplesaml to work.
 	//
 	global $EntityID;
-	$EntityID = 'https://africana.sas.upenn.edu/';
+	$EntityID = 'https://africana.sas.upenn.edu';
 
 	//
 	// The BaseURL is the URL you want users to access the site by.
