@@ -13,7 +13,7 @@ if (file_exists($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.sas-function
         require_once($_SERVER['DOCUMENT_ROOT']. '/sites/default/settings.sas-functions.php');
 }
 
-$EntityID = getEntityID();
+//$EntityID = getEntityID();
 
 $config = array(
 
@@ -30,7 +30,7 @@ $config = array(
     'saml:SP',
 		'privatekey' => $SiteName . '.pem',
 		'certificate' => $SiteName . '.crt',
-		'entityID' => $EntityID,
+		'entityID' => NULL,
 		'idp' => 'https://idp.pennkey.upenn.edu/idp/shibboleth',
 		'discoURL' => NULL,
 		'authproc' => array(
