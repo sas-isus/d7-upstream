@@ -1,0 +1,6 @@
+name = Sendgrid Integration Reports
+description = Sendgrid Reports Module
+dependencies[] = sendgrid_integration
+package = Mail
+core = 7.x
+files[] = tests/sendgrid_integration_reports.test
