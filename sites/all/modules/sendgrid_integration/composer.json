@@ -1,0 +1,18 @@
+{
+  "name": "drupal/contrib/sendgrid_integration",
+  "description": "SendGrid Integration Drupal Module.",
+  "homepage": "https://www.drupal.org/project/sendgrid_integration",
+  "license": "GNU",
+  "keywords": [
+    "SendGrid",
+    "sendgrid",
+    "email",
+    "send",
+    "grid",
+    "transactional",
+    "php"
+  ],
+  "require": {
+    "fastglass/sendgrid": ">=1.0.9"
+  }
+}

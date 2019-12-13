@@ -1,0 +1,46 @@
+{
+  "name": "pantheon-systems/example-drops-7-composer",
+  "description": "Install drops-7 with Composer on Pantheon.",
+  "type": "project",
+  "license": "MIT",
+  "repositories": {
+    "drupal": {
+      "type": "composer",
+      "url":  "https://packages.drupal.org/7"
+    }
+  },
+  "require": {
+    "composer/installers": "^1.0.20",
+    "drupal/composer_vendor": "^1.0",
+    "drupal/sendgrid_integration": "1.x-dev"
+  },
+  "replace": {
+    "drupal/drupal": "*"
+  },
+  "extra": {
+    "installer-paths": {
+      "modules/{$name}/": ["type:drupal-module"],
+      "themes/{$name}/": ["type:drupal-theme"],
+      "libraries/{$name}/": ["type:drupal-library"]
+    }
+  },
+  "minimum-stability": "alpha",
+  "prefer-stable": true,
+  "scripts": {
+    "remove-git-submodules": "find . -mindepth 2 -type d -name .git | xargs rm -rf",
+    "post-install-cmd": [
+      "@remove-git-submodules"
+    ],
+    "post-update-cmd": [
+      "@remove-git-submodules"
+    ]
+  },
+  "config": {
+    "vendor-dir": "vendor",
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "platform": {
+      "php": "5.6.3"
+    }
+  }
+}

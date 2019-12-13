@@ -1,0 +1,76 @@
+<?php
+
+/**
+ * @file
+ * Install file for the Composer Vendor.
+ */
+
+/**
+ * Implements hook_requirements().
+ */
+function composer_vendor_requirements($phase) {
+  if ($phase == 'runtime') {
+    module_load_include('module', 'composer_vendor', 'composer_vendor');
+    $t = get_t();
+
+    $vendor_path = DRUPAL_ROOT . '/sites/all/vendor';
+    $lock_path = DRUPAL_ROOT . '/sites/all/composer.lock';
+    $loader = composer_vendor_loader();
+
+    $requirements = array();
+    $requirements['composer_vendor']['title'] = $t('Composer autoload');
+
+    if ($loader) {
+      $requirements['composer_vendor']['value'] = $vendor_path;
+      $requirements['composer_vendor']['severity'] = REQUIREMENT_OK;
+    }
+    else {
+      $requirements['composer_vendor']['value'] = $t('Not loaded');
+      $requirements['composer_vendor']['severity'] = REQUIREMENT_ERROR;
+      $requirements['composer_vendor']['description'] = $t(
+        'You must running Composer install to populate the %path directory.',
+        array('%path' => $vendor_path));
+    }
+
+    $lock_file = file_get_contents($lock_path);
+    $requirements['composer_lock']['title'] = $t('Composer packages');
+    $lock_details = $lock_file ? json_decode($lock_file) : FALSE;
+    if (!$lock_file) {
+      $requirements['composer_lock']['value'] = $t('Failed to load composer.lock file.');
+      $requirements['composer_lock']['severity'] = REQUIREMENT_ERROR;
+      $requirements['composer_lock']['description'] = $t(
+        'You must running Composer install to generate the %path file.',
+        array('%path' => $lock_path));
+    }
+    elseif ($lock_details == NULL) {
+      $requirements['composer_lock']['value'] = $t('Failed to parse composer.lock file.');
+      $requirements['composer_lock']['severity'] = REQUIREMENT_ERROR;
+      $requirements['composer_lock']['description'] = $t(
+        'Failed to parse the JSON in %path file.',
+        array('%path' => $lock_path));
+    }
+    else {
+      $requirements['composer_lock']['severity'] = REQUIREMENT_OK;
+      if (isset($lock_details->packages) && count($lock_details->packages) > 0) {
+        $packages = $lock_details->packages;
+        $package_list = "<ul>";
+        foreach ($packages as $package) {
+          if (isset($package->name) && isset($package->version)) {
+            $package_list .= "<li>" . $package->name . ": " . $package->version . "</li>";
+          }
+          else {
+            $requirements['composer_lock']['severity'] = REQUIREMENT_WARNING;
+            $package_list .= "<li>" . $t("Invalid package description.") . "</li>";
+          }
+        }
+        $package_list .= "</ul>";
+        $requirements['composer_lock']['value'] = $package_list;
+      }
+      else {
+        $requirements['composer_lock']['value'] = $t("Not packages found.");
+      }
+    }
+
+    return $requirements;
+  }
+}

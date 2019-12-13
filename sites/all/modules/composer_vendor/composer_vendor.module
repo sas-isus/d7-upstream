@@ -1,0 +1,41 @@
+<?php
+
+/**
+ * @file
+ * Provides primary Drupal hook implementations.
+ */
+
+/**
+ * Implements hook_boot().
+ */
+function composer_vendor_boot() {
+  composer_vendor_loader();
+}
+
+/**
+ * Return and statically cache the Composer autoload.
+ *
+ * @return mixed
+ *   The Composer autoloader or FALSE.
+ */
+function composer_vendor_loader() {
+  static $loader = FALSE;
+
+  if (!$loader) {
+    // The vendor directory exists in sites/all.
+    $vendor_path = DRUPAL_ROOT . '/sites/all/vendor';
+    if (is_dir($vendor_path)) {
+      $loader = @include_once $vendor_path . '/autoload.php';
+    }
+
+    // Display a warning about the autoloader not being able to load.
+    if (!$loader) {
+      $message = t('You must running Composer install to populate the %path directory.', array(
+        '%path' => $vendor_path,
+      ));
+      drupal_set_message($message, 'warning', FALSE);
+    }
+  }
+
+  return $loader;
+}
