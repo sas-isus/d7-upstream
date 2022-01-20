@@ -6,6 +6,10 @@ api_version: 1
 php_version: 7.4
 drush_version: 8
 
+# See https://pantheon.io/docs/pantheon-yml#specify-a-version-of-mariadb
+database:
+  version: 10.4
+
 # See https://pantheon.io/docs/pantheon-yml/#enforce-https--hsts for valid values.
 enforce_https: transitional
 
