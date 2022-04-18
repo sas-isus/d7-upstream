@@ -479,7 +479,7 @@ function penncourse_load_sections_by_subj($term, $subj_area) {
                 // $course_info['dist_req'] = penncourse_translate_dist_req($course_record->distribution_requirement);
                 $course_info['dist_req'] = penncourse_translate_dist_req($course_record->distribution_requirement);
                 // $course_info['status'] = $course_record->status;
-                if ($course_record->course_number > 499) {
+                if ($course_record->course_number > 4999) {
                     $course_info['level'] = 'graduate';
                 }
                 else {
@@ -544,7 +544,7 @@ function penncourse_load_sections_by_subj($term, $subj_area) {
                 $section_info['course_id'] = $section_record->course_department . $section_record->course_number;
                 $section_info['course_nid'] = penncourse_find_course_nid(trim($section_record->course_department) . trim($section_record->course_number), $section_record->term);
                 $section_info['notes'] = penncourse_build_notes($section_record->important_notes);
-                if ($section_record->course_number > 499) {
+                if ($section_record->course_number > 4999) {
                     $section_info['level'] = 'graduate';
                 }
                 else {
