@@ -41,12 +41,42 @@ The module also implements configurable password expiration features:
  * Warning e-mail message's subject and body are configurable.
 
 
+REQUIREMENTS
+------------
+
+No special requirements.
+
+
 INSTALLATION
 ------------
 
 Install as you would normally install a contributed Drupal module. See
 https://drupal.org/documentation/install/modules-themes/modules-7
 for further information.
+
+
+CONFIGURATION
+-------------
+
+* Configure password policies and general settings at Administration »
+  Configuration » People » Password policies:
+
+   - Settings
+
+     Configure behaviors of the module that will apply to all password
+     policies.
+
+   - List
+
+     Manage existing password policies.
+
+   - Add
+
+     Add a new password policy.
+
+   - Force Password Change
+
+     Force groups of users to change their passwords.
 
 
 LIMITATIONS

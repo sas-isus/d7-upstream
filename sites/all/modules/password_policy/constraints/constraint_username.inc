@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Password policy constraint callbacks.
@@ -63,7 +64,7 @@ function password_policy_constraint_username_js($constraint, $account) {
       var username_lowercase = username.toLowerCase();
       var password_lowercase = value.toLowerCase();
       if (password_lowercase.indexOf(username_lowercase) != -1) {
-        strength = "low";
+        strength = 'low';
         msg.push(translate.constraint_username);
       }
     }
