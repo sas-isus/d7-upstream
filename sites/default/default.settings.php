@@ -200,12 +200,17 @@
  * Advanced users can add or override initial commands to execute when
  * connecting to the database server, as well as PDO connection settings. For
  * example, to enable MySQL SELECT queries to exceed the max_join_size system
- * variable, and to reduce the database connection timeout to 5 seconds:
+ * variable, and to reduce the database connection timeout to 5 seconds.
+ *
+ * NOTE: NO_AUTO_CREATE_USER was removed in MySQL 8.0.11.
+ * Some hosting providers/MySQL packages may report the wrong MySQL version.
+ * If this is the case, set 'sql_mode' manually:
  *
  * @code
  * $databases['default']['default'] = array(
  *   'init_commands' => array(
  *     'big_selects' => 'SET SQL_BIG_SELECTS=1',
+ *     'sql_mode' => "SET sql_mode = 'REAL_AS_FLOAT,PIPES_AS_CONCAT,ANSI_QUOTES,IGNORE_SPACE,STRICT_TRANS_TABLES,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO",
  *   ),
  *   'pdo' => array(
  *     PDO::ATTR_TIMEOUT => 5,
@@ -825,3 +830,75 @@ if (file_exists(__DIR__ . '/settings.sas.php')) {
  * Use this variable to set a custom cron lock expiration timeout (float).
  */
 # $conf['cron_lock_expiration_timeout'] = 900.0;
+
+/**
+ * File schemes whose paths should not be normalized:
+ *
+ * Normally, Drupal normalizes '/./' and '/../' segments in file URIs in order
+ * to prevent unintended file access. For example, 'private://css/../image.png'
+ * is normalized to 'private://image.png' before checking access to the file.
+ *
+ * On Windows, Drupal also replaces '\' with '/' in URIs for the local
+ * filesystem.
+ *
+ * If file URIs with one or more scheme should not be normalized like this, then
+ * list the schemes here. For example, if 'porcelain://china/./plate.png' should
+ * not be normalized to 'porcelain://china/plate.png', then add 'porcelain' to
+ * this array. In this case, make sure that the module providing the 'porcelain'
+ * scheme does not allow unintended file access when using '/../' to move up the
+ * directory tree.
+ */
+# $conf['file_sa_core_2023_005_schemes'] = array('porcelain');
+
+/**
+ * Configuration for phpinfo() admin status report.
+ *
+ * Drupal's admin UI includes a report at admin/reports/status/php which shows
+ * the output of phpinfo(). The full output can contain sensitive information
+ * so by default Drupal removes some sections.
+ *
+ * This behaviour can be configured by setting this variable to a different
+ * value corresponding to the flags parameter of phpinfo().
+ *
+ * If you need to expose more information in the report - for example to debug a
+ * problem - consider doing so temporarily.
+ *
+ * @see https://www.php.net/manual/function.phpinfo.php
+ */
+# $conf['sa_core_2023_004_phpinfo_flags'] = ~(INFO_VARIABLES | INFO_ENVIRONMENT);
+
+/**
+ * Session IDs are hashed by default before being stored in the database. This
+ * reduces the risk of sessions being hijacked if the database is compromised.
+ *
+ * This variable allows opting out of this security improvement.
+ */
+# $conf['do_not_hash_session_ids'] = TRUE;
+
+/**
+ * URL for update information.
+ *
+ * Drupal's update module can check for the availability of updates. By default
+ * https is used for this check. If for any reason your site cannot use https
+ * you can change this variable to fallback to http. It is recommended to fix
+ * the problem with SSL/TLS rather than use http which provides no security.
+ */
+# $conf['update_fetch_url'] = 'https://updates.drupal.org/release-history';
+
+/**
+ * Opt out of double submit protection.
+ *
+ * By default Drupal will prevent consecutive form submissions of identical form
+ * values. Set this variable to FALSE in order to opt out of this
+ * prevention and revert to the original behaviour.
+ */
+# $conf['javascript_use_double_submit_protection'] = FALSE;
+
+/**
+ * Cron logging.
+ *
+ * Optionally drupal_cron_run() can log each execution of hook_cron() together
+ * with the execution time. This is disabled by default to reduce log noise. Set
+ * this variable to TRUE in order to enable the additional logging.
+ */
+# $conf['cron_logging_enabled'] = TRUE;
