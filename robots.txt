@@ -88,3 +88,17 @@ Disallow: /?q=user/password/
 Disallow: /?q=user/register/
 Disallow: /?q=user/login/
 Disallow: /?q=user/logout/
+# Paths - Disallow over-crawling calendar
+Disallow: /calendar/*
+# Disallow file overcrawling
+User-agent: Googlebot
+Disallow: /*.pdf$
+# Disallow ai crawlers
+User-agent: OpenAI-GPT
+Disallow: /
+User-agent: *AI*
+Disallow: /
+User-agent: claudebot
+Disallow: /
+User-agent: gptbot
+Disallow: /
