@@ -26,13 +26,16 @@ function drupal_error_levels() {
     E_USER_ERROR => array('User error', WATCHDOG_ERROR),
     E_USER_WARNING => array('User warning', WATCHDOG_WARNING),
     E_USER_NOTICE => array('User notice', WATCHDOG_NOTICE),
-    E_STRICT => array('Strict warning', WATCHDOG_DEBUG),
     E_RECOVERABLE_ERROR => array('Recoverable fatal error', WATCHDOG_ERROR),
   );
   // E_DEPRECATED and E_USER_DEPRECATED were added in PHP 5.3.0.
   if (defined('E_DEPRECATED')) {
     $types[E_DEPRECATED] = array('Deprecated function', WATCHDOG_DEBUG);
     $types[E_USER_DEPRECATED] = array('User deprecated function', WATCHDOG_DEBUG);
+  }
+  // E_STRICT is deprecated in PHP 8.4.
+  if (PHP_VERSION_ID < 80400) {
+    $types[E_STRICT] = array('Strict warning', WATCHDOG_DEBUG);
   }
   return $types;
 }
@@ -224,7 +227,7 @@ function _drupal_log_error($error, $fatal = FALSE) {
     if ($fatal) {
       if (error_displayable($error)) {
         // When called from JavaScript, simply output the error message.
-        print t('%type: !message in %function (line %line of %file).', $error);
+        print t('%type: !message in %function (line %line of %file).', _drupal_strip_error_file_path($error));
       }
       exit;
     }
@@ -242,7 +245,7 @@ function _drupal_log_error($error, $fatal = FALSE) {
         $class = 'status';
       }
 
-      drupal_set_message(t('%type: !message in %function (line %line of %file).', $error), $class);
+      drupal_set_message(t('%type: !message in %function (line %line of %file).', _drupal_strip_error_file_path($error)), $class);
     }
 
     if ($fatal) {
@@ -290,4 +293,29 @@ function _drupal_get_last_caller($backtrace) {
     $call['function'] = 'main()';
   }
   return $call;
+}
+
+/**
+ * Strip full path information from error details.
+ *
+ * @param $error
+ *   An array with the following keys: %type, !message, %function, %file, %line
+ *   and severity_level.
+ *
+ * @return
+ *   An array with the same keys as the $error param but with full paths
+ *   stripped from the %file element
+ */
+function _drupal_strip_error_file_path($error) {
+  if (!empty($error['%file'])) {
+    if (($drupal_root_position = strpos($error['%file'], DRUPAL_ROOT)) === 0) {
+      $root_length = strlen(DRUPAL_ROOT);
+      $error['%file'] = substr($error['%file'], $root_length + 1);
+    }
+    elseif ($drupal_root_position !== FALSE) {
+      // As a fallback, make sure DRUPAL_ROOT's value is not in the path.
+      $error['%file'] = str_replace(DRUPAL_ROOT, 'DRUPAL_ROOT', $error['%file']);
+    }
+  }
+  return $error;
 }
